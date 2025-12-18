@@ -251,19 +251,6 @@ function detectDomainCategories(domain) {
     return matchedCategories;
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Get relevant templates based on domain and history
  */
