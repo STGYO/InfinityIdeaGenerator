@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinity Idea Generator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>♾️ Infinity Idea Generator</h1>
+            <p class="subtitle">Explore endless possibilities in any domain</p>
+        </header>
+
+        <!-- Initial domain input screen -->
+        <div id="domain-input-screen" class="screen active">
+            <div class="input-group">
+                <label for="domain-input">Enter a domain to explore:</label>
+                <input 
+                    type="text" 
+                    id="domain-input" 
+                    placeholder="e.g., mobile apps, restaurant concepts, sci-fi stories..."
+                    autocomplete="off"
+                >
+                <div id="domain-error" class="error-message" role="alert" aria-live="polite"></div>
+                <button id="start-btn" class="primary-btn">Start Generating</button>
+            </div>
+        </div>
+
+        <!-- Idea generation screen -->
+        <div id="generation-screen" class="screen">
+            <div class="context-display">
+                <div class="domain-badge">
+                    <strong>Domain:</strong> <span id="current-domain"></span>
+                </div>
+                <div class="history-section">
+                    <strong>Path:</strong>
+                    <div id="history-path"></div>
+                </div>
+            </div>
+
+            <div class="prompt-section">
+                <p id="generation-prompt"></p>
+            </div>
+
+            <div class="options-section">
+                <h3>Choose your next direction:</h3>
+                <div id="options-container"></div>
+                
+                <div class="custom-input-section">
+                    <input 
+                        type="text" 
+                        id="custom-input" 
+                        placeholder="Or enter your own idea..."
+                        autocomplete="off"
+                    >
+                    <button id="custom-submit-btn" class="secondary-btn">Submit Custom</button>
+                    <div id="custom-error" class="error-message" role="alert" aria-live="polite"></div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button id="reset-btn" class="reset-btn">Start Over</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
