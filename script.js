@@ -264,9 +264,6 @@ function detectDomainCategories(domain) {
 
 
 
-
-
-
 /**
  * Get relevant templates based on domain and history
  */
@@ -282,9 +279,7 @@ function getTemplatesForDomain() {
     let domainTemplates = [];
     matchedCategories.forEach(categoryName => {
         if (operatorMappings.categories[categoryName]) {
-            domainTemplates = domainTemplates.concat(
-                operatorMappings.categories[categoryName].operators
-            );
+            domainTemplates.push(...operatorMappings.categories[categoryName].operators);
         }
     });
     
@@ -292,19 +287,17 @@ function getTemplatesForDomain() {
     if (!matchedCategories.includes('default') && operatorMappings.categories.default) {
         const defaultTemplates = operatorMappings.categories.default.operators;
         const defaultCount = Math.floor(defaultTemplates.length * GENERIC_TEMPLATE_RATIO);
-        const selectedDefault = [];
+        const selectedDefault = new Set();
         let attempts = 0;
         const maxAttempts = defaultCount * MAX_ATTEMPTS_MULTIPLIER;
         
-        while (selectedDefault.length < defaultCount && attempts < maxAttempts) {
+        while (selectedDefault.size < defaultCount && attempts < maxAttempts) {
             const randomIndex = Math.floor(Math.random() * defaultTemplates.length);
-            if (!selectedDefault.includes(defaultTemplates[randomIndex])) {
-                selectedDefault.push(defaultTemplates[randomIndex]);
-            }
+            selectedDefault.add(defaultTemplates[randomIndex]);
             attempts++;
         }
         
-        domainTemplates = [...domainTemplates, ...selectedDefault];
+        domainTemplates.push(...selectedDefault);
     }
     
     // Add context-aware templates based on history
