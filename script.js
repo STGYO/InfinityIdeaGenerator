@@ -7,6 +7,8 @@
 const MIN_OPTIONS = 4;
 const MAX_OPTIONS = 6;
 const MAX_RANDOM_NUMBER = 20;
+const GENERIC_TEMPLATE_RATIO = 0.2; // 20% of templates will be generic for variety
+const MAX_ATTEMPTS_MULTIPLIER = 10; // Safety multiplier for selection loops
 
 // Context object to store domain and history
 const context = {
@@ -662,12 +664,12 @@ function getTemplatesForDomain() {
             domainTemplates = getGenericTemplates();
     }
     
-    // Add some generic templates to domain-specific ones for variety (20% generic)
+    // Add some generic templates to domain-specific ones for variety
     const genericTemplates = getGenericTemplates();
-    const genericCount = Math.floor(genericTemplates.length * 0.2);
+    const genericCount = Math.floor(genericTemplates.length * GENERIC_TEMPLATE_RATIO);
     const selectedGeneric = [];
     let attempts = 0;
-    const maxAttempts = genericCount * 10; // Prevent infinite loop
+    const maxAttempts = genericCount * MAX_ATTEMPTS_MULTIPLIER; // Prevent infinite loop
     
     while (selectedGeneric.length < genericCount && attempts < maxAttempts) {
         const randomIndex = Math.floor(Math.random() * genericTemplates.length);
