@@ -1,0 +1,1 @@
+# InfinityIdeaGenerator
