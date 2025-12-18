@@ -666,11 +666,15 @@ function getTemplatesForDomain() {
     const genericTemplates = getGenericTemplates();
     const genericCount = Math.floor(genericTemplates.length * 0.2);
     const selectedGeneric = [];
-    for (let i = 0; i < genericCount; i++) {
+    let attempts = 0;
+    const maxAttempts = genericCount * 10; // Prevent infinite loop
+    
+    while (selectedGeneric.length < genericCount && attempts < maxAttempts) {
         const randomIndex = Math.floor(Math.random() * genericTemplates.length);
         if (!selectedGeneric.includes(genericTemplates[randomIndex])) {
             selectedGeneric.push(genericTemplates[randomIndex]);
         }
+        attempts++;
     }
     
     const allTemplates = [...domainTemplates, ...selectedGeneric];
