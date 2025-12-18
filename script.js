@@ -7,6 +7,8 @@
 const MIN_OPTIONS = 4;
 const MAX_OPTIONS = 6;
 const MAX_RANDOM_NUMBER = 20;
+const GENERIC_TEMPLATE_RATIO = 0.2; // 20% of templates will be generic for variety
+const MAX_ATTEMPTS_MULTIPLIER = 10; // Safety multiplier for selection loops
 
 // Context object to store domain and history
 const context = {
@@ -189,10 +191,390 @@ function generateSingleOption(templates) {
 }
 
 /**
- * Get relevant templates based on domain and history
+ * Detect domain category based on keywords in the domain string
  */
-function getTemplatesForDomain() {
-    const baseTemplates = [
+function detectDomainCategory(domain) {
+    const domainLower = domain.toLowerCase();
+    
+    // Creative writing keywords
+    const creativeWriting = ['novel', 'story', 'book', 'fiction', 'narrative', 'plot', 'character', 
+                             'script', 'screenplay', 'writing', 'author', 'poetry', 'literature', 
+                             'fantasy', 'sci-fi', 'mystery', 'romance', 'thriller'];
+    
+    // Business keywords
+    const business = ['business', 'startup', 'company', 'enterprise', 'market', 'revenue', 
+                      'profit', 'sales', 'customer', 'b2b', 'b2c', 'saas', 'service'];
+    
+    // Technology/software keywords
+    const technology = ['app', 'software', 'platform', 'web', 'mobile', 'tech', 'api', 
+                        'cloud', 'database', 'algorithm', 'code', 'programming', 'system'];
+    
+    // Design keywords
+    const design = ['design', 'ui', 'ux', 'interface', 'visual', 'graphic', 'layout', 
+                    'brand', 'logo', 'style', 'aesthetic', 'art'];
+    
+    // Product keywords
+    const product = ['product', 'feature', 'gadget', 'device', 'tool', 'hardware', 
+                     'invention', 'prototype'];
+    
+    // Food & Restaurant keywords
+    const food = ['restaurant', 'food', 'cuisine', 'menu', 'recipe', 'cooking', 'chef', 
+                  'dining', 'cafe', 'bakery'];
+    
+    // Game keywords
+    const game = ['game', 'gaming', 'gameplay', 'level', 'player', 'rpg', 'puzzle', 
+                  'strategy', 'adventure', 'multiplayer'];
+    
+    // Check each category
+    if (creativeWriting.some(keyword => domainLower.includes(keyword))) {
+        return 'creative-writing';
+    }
+    if (business.some(keyword => domainLower.includes(keyword))) {
+        return 'business';
+    }
+    if (technology.some(keyword => domainLower.includes(keyword))) {
+        return 'technology';
+    }
+    if (design.some(keyword => domainLower.includes(keyword))) {
+        return 'design';
+    }
+    if (product.some(keyword => domainLower.includes(keyword))) {
+        return 'product';
+    }
+    if (food.some(keyword => domainLower.includes(keyword))) {
+        return 'food';
+    }
+    if (game.some(keyword => domainLower.includes(keyword))) {
+        return 'game';
+    }
+    
+    return 'generic';
+}
+
+/**
+ * Get domain-specific templates for creative writing
+ */
+function getCreativeWritingTemplates() {
+    return [
+        // Genre shifts
+        'Shift genre to mystery/thriller',
+        'Add horror elements',
+        'Convert to romance subplot',
+        'Make it a comedy',
+        'Add science fiction elements',
+        'Transform into fantasy setting',
+        
+        // Narrative operators
+        'Change narrator perspective (1st to 3rd person)',
+        'Add unreliable narrator',
+        'Use non-linear timeline',
+        'Tell story in reverse',
+        'Add multiple POV characters',
+        'Switch to epistolary format',
+        
+        // Character operators
+        'Make protagonist an anti-hero',
+        'Flip protagonist and antagonist roles',
+        'Add ensemble cast',
+        'Age protagonist up/down by {number} years',
+        'Change protagonist\'s background completely',
+        'Introduce morally gray character',
+        
+        // Plot operators
+        'Add unexpected plot twist',
+        'Remove subplot about {last}',
+        'Introduce time travel element',
+        'Add mystery/conspiracy layer',
+        'Change the ending completely',
+        'Make stakes {multiplier} higher',
+        
+        // Setting operators
+        'Move setting to different time period',
+        'Change location to exotic/unusual place',
+        'Shift from urban to rural (or vice versa)',
+        'Add alternate reality/parallel world',
+        'Set in post-apocalyptic future',
+        'Create entirely fictional world'
+    ];
+}
+
+/**
+ * Get domain-specific templates for business
+ */
+function getBusinessTemplates() {
+    return [
+        // Market operators
+        'Target different market segment: {target}',
+        'Expand to international markets',
+        'Focus on niche market only',
+        'Shift from B2C to B2B model',
+        'Shift from B2B to B2C model',
+        'Enter adjacent market',
+        
+        // Pricing operators
+        'Switch to freemium model',
+        'Convert to subscription pricing',
+        'Try usage-based pricing',
+        'Offer tiered pricing with {number} tiers',
+        'Make it premium/luxury pricing',
+        'Race to bottom: lowest price in market',
+        
+        // Distribution operators
+        'Change from direct to channel sales',
+        'Add marketplace distribution',
+        'Build network of resellers',
+        'Go direct-to-consumer only',
+        'Partner with major platforms',
+        'Use viral/referral distribution',
+        
+        // Business model operators
+        'Convert to marketplace model',
+        'Become platform for others',
+        'Add services on top of product',
+        'Remove services, focus on product',
+        'Introduce revenue sharing',
+        'Add advertising revenue stream',
+        
+        // Scale operators
+        'Scale team by {multiplier}',
+        'Reduce overhead by {multiplier}',
+        'Multiply customer base by {multiplier}',
+        'Expand to {number} new regions'
+    ];
+}
+
+/**
+ * Get domain-specific templates for technology
+ */
+function getTechnologyTemplates() {
+    return [
+        // Feature operators
+        'Add AI/ML capabilities',
+        'Remove {number} least-used features',
+        'Focus on one core feature only',
+        'Add real-time collaboration',
+        'Introduce automation for {last}',
+        'Add mobile-first experience',
+        
+        // Architecture operators
+        'Migrate to microservices',
+        'Move to serverless architecture',
+        'Add edge computing layer',
+        'Implement event-driven design',
+        'Switch to monolithic simplicity',
+        'Add blockchain/distributed ledger',
+        
+        // Scalability operators
+        'Optimize for {multiplier} more users',
+        'Add caching layer',
+        'Implement horizontal scaling',
+        'Reduce latency by {multiplier}',
+        'Support offline-first mode',
+        'Add CDN for global performance',
+        
+        // Integration operators
+        'Build public API',
+        'Add webhook support',
+        'Integrate with major platforms',
+        'Support {number} third-party integrations',
+        'Create plugin ecosystem',
+        'Add OAuth/SSO support',
+        
+        // User experience operators
+        'Add dark mode',
+        'Implement progressive web app',
+        'Create native mobile apps',
+        'Add voice interface',
+        'Build CLI version',
+        'Add keyboard shortcuts for power users'
+    ];
+}
+
+/**
+ * Get domain-specific templates for design
+ */
+function getDesignTemplates() {
+    return [
+        // Aesthetic operators
+        'Switch to minimalist design',
+        'Add maximalist/bold style',
+        'Use brutalist aesthetic',
+        'Apply retro/vintage style',
+        'Go for futuristic look',
+        'Adopt material design principles',
+        
+        // Layout operators
+        'Change to single-column layout',
+        'Use grid-based design',
+        'Implement card-based interface',
+        'Add full-screen immersive mode',
+        'Increase white space by {multiplier}',
+        'Make it asymmetrical',
+        
+        // Usability operators
+        'Reduce to {number}-step flow',
+        'Add progressive disclosure',
+        'Implement gesture-based navigation',
+        'Simplify information hierarchy',
+        'Add micro-interactions',
+        'Increase touch target sizes',
+        
+        // Visual operators
+        'Change color palette completely',
+        'Add custom illustrations',
+        'Use photography instead of graphics',
+        'Increase contrast by {multiplier}',
+        'Add animations and transitions',
+        'Use bold typography as focal point',
+        
+        // Accessibility operators
+        'Optimize for screen readers',
+        'Add high-contrast mode',
+        'Support keyboard-only navigation',
+        'Increase text size options',
+        'Add color-blind friendly palette',
+        'Implement voice control'
+    ];
+}
+
+/**
+ * Get domain-specific templates for products
+ */
+function getProductTemplates() {
+    return [
+        // Feature operators
+        'Strip down to essential features only',
+        'Add {number} premium features',
+        'Combine with complementary product',
+        'Make it modular/customizable',
+        'Add smart/connected capabilities',
+        'Focus on single use case',
+        
+        // User segment operators
+        'Reposition for {target}',
+        'Create pro version for experts',
+        'Make beginner-friendly version',
+        'Target opposite demographic',
+        'Focus on accessibility needs',
+        'Design for extreme conditions',
+        
+        // Form factor operators
+        'Make it portable/compact',
+        'Scale size by {multiplier}',
+        'Create handheld version',
+        'Design for wearable form',
+        'Make it modular/stackable',
+        'Change material completely',
+        
+        // Pricing operators
+        'Move to rental/subscription model',
+        'Offer budget version',
+        'Create luxury/premium tier',
+        'Add freemium with upgrades',
+        'Bundle with other products',
+        'Reduce price by {multiplier}'
+    ];
+}
+
+/**
+ * Get domain-specific templates for food/restaurants
+ */
+function getFoodTemplates() {
+    return [
+        // Cuisine operators
+        'Fusion with different cuisine',
+        'Focus on regional specialty',
+        'Go fusion: {number} cuisine mix',
+        'Traditional/authentic approach',
+        'Modern twist on classics',
+        'Focus on single ingredient/dish',
+        
+        // Menu operators
+        'Reduce menu to {number} signature items',
+        'Add seasonal rotating menu',
+        'Create tasting menu experience',
+        'Focus on dietary restriction (vegan/keto/etc)',
+        'Add chef\'s special innovations',
+        'Make everything customizable',
+        
+        // Service model operators
+        'Switch to fast-casual format',
+        'Add fine dining experience',
+        'Try pop-up/temporary concept',
+        'Go food truck/mobile',
+        'Add delivery/takeout focus',
+        'Create subscription meal service',
+        
+        // Atmosphere operators
+        'Complete ambiance redesign',
+        'Add entertainment/experience',
+        'Create intimate small space',
+        'Design for large groups/events',
+        'Add outdoor/patio focus',
+        'Theme around specific concept',
+        
+        // Sourcing operators
+        'Source everything locally',
+        'Focus on organic/sustainable',
+        'Feature exotic/imported ingredients',
+        'Farm-to-table concept',
+        'Partner with specific suppliers',
+        'Grow/produce own ingredients'
+    ];
+}
+
+/**
+ * Get domain-specific templates for games
+ */
+function getGameTemplates() {
+    return [
+        // Gameplay operators
+        'Add multiplayer/co-op mode',
+        'Make it single-player focused',
+        'Increase difficulty by {multiplier}',
+        'Add procedural generation',
+        'Introduce permadeath/roguelike',
+        'Add skill-based progression',
+        
+        // Genre shifts
+        'Blend with RPG elements',
+        'Add strategy layer',
+        'Incorporate puzzle mechanics',
+        'Mix with survival elements',
+        'Add simulation aspects',
+        'Create battle royale mode',
+        
+        // Player experience operators
+        'Make sessions {number} minutes each',
+        'Add endless/infinite mode',
+        'Create story-driven campaign',
+        'Focus on competitive play',
+        'Design for casual players',
+        'Optimize for speedrunning',
+        
+        // Mechanics operators
+        'Add crafting system',
+        'Introduce resource management',
+        'Add character customization',
+        'Include base/city building',
+        'Add card/deck building',
+        'Introduce time manipulation mechanic',
+        
+        // Setting/Theme operators
+        'Change setting to sci-fi',
+        'Use fantasy world',
+        'Set in realistic/modern world',
+        'Create dystopian theme',
+        'Use historical setting',
+        'Design surreal/abstract world'
+    ];
+}
+
+/**
+ * Get generic templates as fallback
+ */
+function getGenericTemplates() {
+    return [
         // Removal operators
         'Remove {constraint}',
         'Eliminate {constraint} entirely',
@@ -245,10 +627,63 @@ function getTemplatesForDomain() {
         'Split into {number} separate products',
         'Unbundle the {last}'
     ];
+}
+
+/**
+ * Get relevant templates based on domain and history
+ */
+function getTemplatesForDomain() {
+    // Detect domain category
+    const category = detectDomainCategory(context.domain);
+    
+    // Get domain-specific templates based on category
+    let domainTemplates = [];
+    switch(category) {
+        case 'creative-writing':
+            domainTemplates = getCreativeWritingTemplates();
+            break;
+        case 'business':
+            domainTemplates = getBusinessTemplates();
+            break;
+        case 'technology':
+            domainTemplates = getTechnologyTemplates();
+            break;
+        case 'design':
+            domainTemplates = getDesignTemplates();
+            break;
+        case 'product':
+            domainTemplates = getProductTemplates();
+            break;
+        case 'food':
+            domainTemplates = getFoodTemplates();
+            break;
+        case 'game':
+            domainTemplates = getGameTemplates();
+            break;
+        default:
+            domainTemplates = getGenericTemplates();
+    }
+    
+    // Add some generic templates to domain-specific ones for variety
+    const genericTemplates = getGenericTemplates();
+    const genericCount = Math.floor(genericTemplates.length * GENERIC_TEMPLATE_RATIO);
+    const selectedGeneric = [];
+    let attempts = 0;
+    const maxAttempts = genericCount * MAX_ATTEMPTS_MULTIPLIER; // Prevent infinite loop
+    
+    while (selectedGeneric.length < genericCount && attempts < maxAttempts) {
+        const randomIndex = Math.floor(Math.random() * genericTemplates.length);
+        if (!selectedGeneric.includes(genericTemplates[randomIndex])) {
+            selectedGeneric.push(genericTemplates[randomIndex]);
+        }
+        attempts++;
+    }
+    
+    const allTemplates = [...domainTemplates, ...selectedGeneric];
     
     // Add context-aware templates based on history
     if (context.history.length > 2) {
-        baseTemplates.push(
+        allTemplates.push(
             'Pivot to opposite direction',
             'Return to initial concept',
             'Merge last 2 ideas',
@@ -256,7 +691,7 @@ function getTemplatesForDomain() {
         );
     }
     
-    return baseTemplates;
+    return allTemplates;
 }
 
 /**
