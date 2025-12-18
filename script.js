@@ -47,8 +47,23 @@ async function loadOperatorMappings() {
         console.log('Operator mappings loaded successfully');
     } catch (error) {
         console.error('Error loading operator mappings:', error);
-        // Fallback to empty mappings structure
-        operatorMappings = { categories: { default: { keywords: [], operators: [] } } };
+        // Fallback to basic default operators if JSON fails to load
+        operatorMappings = { 
+            categories: { 
+                default: { 
+                    keywords: [], 
+                    operators: [
+                        'Remove {constraint}',
+                        'Invert {assumption}',
+                        'Change target user to {target}',
+                        'Scale {multiplier}',
+                        'Automate the manual parts',
+                        'Make it self-service',
+                        'Turn it into a platform'
+                    ] 
+                } 
+            } 
+        };
     }
 }
 
