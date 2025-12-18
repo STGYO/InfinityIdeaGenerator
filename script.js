@@ -174,7 +174,7 @@ function generateSingleOption(templates) {
     option = option.replace(/{constraint}/g, constraints[Math.floor(Math.random() * constraints.length)]);
     
     // Replace {multiplier} with scale factors
-    const multipliers = ['10x', '100x', '2x', '5x', 'half'];
+    const multipliers = ['10x', '100x', '2x', '5x', '0.5x'];
     option = option.replace(/{multiplier}/g, multipliers[Math.floor(Math.random() * multipliers.length)]);
     
     // Replace {assumption} with common assumptions
@@ -251,7 +251,7 @@ function getTemplatesForDomain() {
         baseTemplates.push(
             'Pivot to opposite direction',
             'Return to initial concept',
-            'Merge last {number} ideas',
+            'Merge last 2 ideas',
             'Challenge the core assumption'
         );
     }
