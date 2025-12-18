@@ -127,15 +127,20 @@ function generateNextStep() {
  * Generate creative options based on current context
  */
 function generateOptions(count) {
-    const options = [];
+    const options = new Set();
     const templates = getTemplatesForDomain();
     
-    for (let i = 0; i < count; i++) {
+    // Generate unique options (prevent duplicates)
+    let attempts = 0;
+    const maxAttempts = count * 10; // Prevent infinite loop
+    
+    while (options.size < count && attempts < maxAttempts) {
         const option = generateSingleOption(templates);
-        options.push(option);
+        options.add(option);
+        attempts++;
     }
     
-    return options;
+    return Array.from(options);
 }
 
 /**
@@ -158,18 +163,24 @@ function generateSingleOption(templates) {
         option = option.replace(/{last}/g, context.domain);
     }
     
-    // Replace {adjective} with random adjectives
-    const adjectives = ['innovative', 'sustainable', 'minimalist', 'bold', 'elegant', 
-                       'futuristic', 'retro', 'premium', 'affordable', 'experimental',
-                       'collaborative', 'personalized', 'automated', 'eco-friendly', 'smart'];
-    option = option.replace(/{adjective}/g, adjectives[Math.floor(Math.random() * adjectives.length)]);
+    // Replace {target} with specific target users
+    const targets = ['beginners', 'experts', 'enterprises', 'teenagers', 'seniors', 
+                     'small businesses', 'developers', 'creators', 'students', 'professionals'];
+    option = option.replace(/{target}/g, targets[Math.floor(Math.random() * targets.length)]);
     
-    // Replace {feature} with random features
-    const features = ['with AI integration', 'with social features', 'with gamification',
-                     'with real-time updates', 'with custom themes', 'with analytics',
-                     'with voice control', 'with offline mode', 'with cloud sync',
-                     'with community-driven content', 'with subscription model', 'with freemium tier'];
-    option = option.replace(/{feature}/g, features[Math.floor(Math.random() * features.length)]);
+    // Replace {constraint} with specific constraints
+    const constraints = ['a dependency', 'a feature', 'the middleman', 'manual steps', 'a cost center',
+                         'a bottleneck', 'complexity', 'a requirement', 'friction', 'an intermediary'];
+    option = option.replace(/{constraint}/g, constraints[Math.floor(Math.random() * constraints.length)]);
+    
+    // Replace {multiplier} with scale factors
+    const multipliers = ['10x', '100x', '2x', '5x', 'half'];
+    option = option.replace(/{multiplier}/g, multipliers[Math.floor(Math.random() * multipliers.length)]);
+    
+    // Replace {assumption} with common assumptions
+    const assumptions = ['the pricing model', 'the delivery method', 'the user flow', 'the monetization strategy',
+                        'the target market', 'the value proposition', 'the distribution channel', 'the core feature'];
+    option = option.replace(/{assumption}/g, assumptions[Math.floor(Math.random() * assumptions.length)]);
     
     // Replace {number} with random numbers
     option = option.replace(/{number}/g, Math.floor(Math.random() * MAX_RANDOM_NUMBER) + 1);
@@ -182,35 +193,66 @@ function generateSingleOption(templates) {
  */
 function getTemplatesForDomain() {
     const baseTemplates = [
-        'Focus on {adjective} approach',
-        'Add {feature}',
-        'Target {adjective} user segment',
-        'Implement {adjective} design',
-        'Optimize for {adjective} performance',
-        'Create {adjective} variation',
-        'Expand into {adjective} market',
-        'Partner with {adjective} platforms',
-        'Introduce {number} new aspects',
-        'Simplify the {last}',
-        'Enhance {last} with premium features',
-        'Make it more {adjective}',
-        'Combine with trending technology',
-        'Scale for enterprise use',
-        'Design for mobile-first experience',
-        'Add community-driven features',
-        'Implement subscription-based model',
-        'Focus on accessibility',
-        'Integrate with popular services',
-        'Create niche version for specific audience'
+        // Removal operators
+        'Remove {constraint}',
+        'Eliminate {constraint} entirely',
+        'Cut cost by {multiplier}',
+        'Reduce complexity by {multiplier}',
+        
+        // Inversion operators
+        'Invert {assumption}',
+        'Flip the {assumption}',
+        'Reverse the user journey',
+        'Do the opposite of current approach',
+        
+        // Target change operators
+        'Change target user to {target}',
+        'Shift focus to {target}',
+        'Reposition for {target}',
+        
+        // Scale operators
+        'Scale {multiplier}',
+        'Multiply capacity by {multiplier}',
+        'Shrink to {multiplier} the size',
+        'Increase speed by {multiplier}',
+        
+        // Addition operators
+        'Add constraint: {number}-minute time limit',
+        'Introduce {number} competing variations',
+        'Layer on peer-to-peer element',
+        
+        // Transformation operators
+        'Automate the manual parts',
+        'Make it self-service',
+        'Turn it into a platform',
+        'Convert to subscription model',
+        'Shift from B2C to B2B',
+        'Move from software to service',
+        
+        // Constraint operators
+        'Limit to {number} core features only',
+        'Operate with zero budget for {assumption}',
+        'Launch in {number} days',
+        'Build with single person team',
+        
+        // Combination operators
+        'Merge with adjacent market',
+        'Bundle with complementary offering',
+        'Combine {last} with physical product',
+        
+        // Unbundling operators
+        'Extract one feature as standalone',
+        'Split into {number} separate products',
+        'Unbundle the {last}'
     ];
     
     // Add context-aware templates based on history
     if (context.history.length > 2) {
         baseTemplates.push(
-            'Pivot to different angle',
-            'Return to core concept',
-            'Merge previous ideas',
-            'Explore opposite direction'
+            'Pivot to opposite direction',
+            'Return to initial concept',
+            'Merge last {number} ideas',
+            'Challenge the core assumption'
         );
     }
     
@@ -247,10 +289,14 @@ function updateHistoryDisplay() {
         return;
     }
     
-    context.history.forEach((choice, index) => {
+    // Show only last 10 items
+    const recentHistory = context.history.slice(-10);
+    const startIndex = context.history.length - recentHistory.length;
+    
+    recentHistory.forEach((choice, index) => {
         const item = document.createElement('span');
         item.className = 'history-item';
-        item.textContent = `${index + 1}. ${choice}`;
+        item.textContent = `${startIndex + index + 1}. ${choice}`;
         historyPath.appendChild(item);
     });
 }
