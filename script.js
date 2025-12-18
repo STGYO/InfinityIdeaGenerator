@@ -277,12 +277,12 @@ function getTemplatesForDomain() {
         
         // Use Fisher-Yates shuffle to select random templates efficiently
         const shuffled = [...defaultTemplates];
-        for (let i = shuffled.length - 1; i > 0 && i >= shuffled.length - defaultCount; i--) {
+        for (let i = shuffled.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
         
-        domainTemplates.push(...shuffled.slice(-defaultCount));
+        domainTemplates.push(...shuffled.slice(0, defaultCount));
     }
     
     // Add context-aware templates based on history
