@@ -3,6 +3,11 @@
  * A client-side app that generates infinite idea options based on user choices
  */
 
+// Constants
+const MIN_OPTIONS = 4;
+const MAX_OPTIONS = 6;
+const MAX_RANDOM_NUMBER = 20;
+
 // Context object to store domain and history
 const context = {
     domain: '',
@@ -14,12 +19,14 @@ const domainInputScreen = document.getElementById('domain-input-screen');
 const generationScreen = document.getElementById('generation-screen');
 const domainInput = document.getElementById('domain-input');
 const startBtn = document.getElementById('start-btn');
+const domainError = document.getElementById('domain-error');
 const currentDomainDisplay = document.getElementById('current-domain');
 const historyPath = document.getElementById('history-path');
 const generationPrompt = document.getElementById('generation-prompt');
 const optionsContainer = document.getElementById('options-container');
 const customInput = document.getElementById('custom-input');
 const customSubmitBtn = document.getElementById('custom-submit-btn');
+const customError = document.getElementById('custom-error');
 const resetBtn = document.getElementById('reset-btn');
 
 /**
@@ -41,15 +48,37 @@ function init() {
 }
 
 /**
+ * Show error message
+ */
+function showError(element, message) {
+    element.textContent = message;
+    element.classList.add('show');
+    setTimeout(() => {
+        element.classList.remove('show');
+    }, 3000);
+}
+
+/**
+ * Clear error message
+ */
+function clearError(element) {
+    element.textContent = '';
+    element.classList.remove('show');
+}
+
+/**
  * Start the generation process
  */
 function startGeneration() {
     const domain = domainInput.value.trim();
     
     if (!domain) {
-        alert('Please enter a domain to explore!');
+        showError(domainError, 'Please enter a domain to explore!');
+        domainInput.focus();
         return;
     }
+    
+    clearError(domainError);
     
     // Set the domain in context
     context.domain = domain;
@@ -81,7 +110,7 @@ function generateNextStep() {
     updatePrompt();
     
     // Generate 4-6 random options
-    const numOptions = Math.floor(Math.random() * 3) + 4; // Random number between 4-6
+    const numOptions = Math.floor(Math.random() * (MAX_OPTIONS - MIN_OPTIONS + 1)) + MIN_OPTIONS;
     const options = generateOptions(numOptions);
     
     // Create option buttons
@@ -143,7 +172,7 @@ function generateSingleOption(templates) {
     option = option.replace(/{feature}/g, features[Math.floor(Math.random() * features.length)]);
     
     // Replace {number} with random numbers
-    option = option.replace(/{number}/g, Math.floor(Math.random() * 20) + 1);
+    option = option.replace(/{number}/g, Math.floor(Math.random() * MAX_RANDOM_NUMBER) + 1);
     
     return option;
 }
@@ -244,9 +273,12 @@ function handleCustomInput() {
     const customValue = customInput.value.trim();
     
     if (!customValue) {
-        alert('Please enter your custom idea!');
+        showError(customError, 'Please enter your custom idea!');
+        customInput.focus();
         return;
     }
+    
+    clearError(customError);
     
     // Add to history
     context.history.push(customValue);
