@@ -274,17 +274,15 @@ function getTemplatesForDomain() {
     if (!matchedCategories.includes('default') && operatorMappings.categories.default) {
         const defaultTemplates = operatorMappings.categories.default.operators;
         const defaultCount = Math.floor(defaultTemplates.length * GENERIC_TEMPLATE_RATIO);
-        const selectedDefault = new Set();
-        let attempts = 0;
-        const maxAttempts = defaultCount * MAX_ATTEMPTS_MULTIPLIER;
         
-        while (selectedDefault.size < defaultCount && attempts < maxAttempts) {
-            const randomIndex = Math.floor(Math.random() * defaultTemplates.length);
-            selectedDefault.add(defaultTemplates[randomIndex]);
-            attempts++;
+        // Use Fisher-Yates shuffle to select random templates efficiently
+        const shuffled = [...defaultTemplates];
+        for (let i = shuffled.length - 1; i > 0 && i >= shuffled.length - defaultCount; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
         
-        domainTemplates.push(...selectedDefault);
+        domainTemplates.push(...shuffled.slice(-defaultCount));
     }
     
     // Add context-aware templates based on history
