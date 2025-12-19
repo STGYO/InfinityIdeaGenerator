@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operator Mappings Editor</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 40px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+
+        /* Categories list */
+        .categories-container {
+            display: grid;
+            gap: 20px;
+        }
+
+        .category-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .category-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .category-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .category-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #444;
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+
+        .keywords-list, .operators-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .keyword-tag, .operator-tag {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .operator-tag {
+            flex-basis: 100%;
+            justify-content: space-between;
+        }
+
+        .tag-text {
+            flex: 1;
+        }
+
+        .tag-actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            font-size: 1rem;
+            color: #666;
+            transition: color 0.2s ease;
+        }
+
+        .btn-icon:hover {
+            color: #667eea;
+        }
+
+        .btn-icon.delete:hover {
+            color: #ff6b6b;
+        }
+
+        .add-item-section {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .add-item-section input {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            outline: none;
+        }
+
+        .add-item-section input:focus {
+            border-color: #667eea;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            color: #667eea;
+            font-size: 1.5rem;
+        }
+
+        .modal-body {
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #444;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .hidden-input {
+            display: none;
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            .toolbar {
+                flex-direction: column;
+            }
+
+            .category-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .operator-tag {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛠️ Operator Mappings Editor</h1>
+            <p class="subtitle">Developer tool for managing categories, keywords, and operators</p>
+        </header>
+
+        <div class="toolbar">
+            <button class="btn-primary" onclick="addCategory()">➕ Add Category</button>
+            <button class="btn-success" onclick="exportJSON()">⬇️ Export JSON</button>
+            <button class="btn-secondary" onclick="document.getElementById('import-file').click()">⬆️ Import JSON</button>
+            <input type="file" id="import-file" class="hidden-input" accept=".json" onchange="importJSON(event)">
+        </div>
+
+        <div id="categories-container" class="categories-container"></div>
+    </div>
+
+    <!-- Add/Edit Category Modal -->
+    <div id="category-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="category-modal-title">Add Category</h2>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="category-name-input">Category Name</label>
+                    <input type="text" id="category-name-input" placeholder="e.g., technology, business">
+                </div>
+                <div class="form-group">
+                    <label for="category-keywords-input">Keywords (comma-separated)</label>
+                    <textarea id="category-keywords-input" placeholder="e.g., app, software, platform, web"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="category-operators-input">Operators (one per line)</label>
+                    <textarea id="category-operators-input" placeholder="Add AI/ML capabilities&#10;Remove {number} least-used features&#10;Focus on one core feature only"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveCategory()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data structure
+        let operatorMappings = {
+            categories: {}
+        };
+
+        let editingCategory = null;
+
+        // Initialize
+        async function init() {
+            try {
+                const response = await fetch('operator-mappings.json');
+                if (response.ok) {
+                    operatorMappings = await response.json();
+                    renderCategories();
+                } else {
+                    console.warn('Could not load operator-mappings.json, starting with empty data');
+                    renderCategories();
+                }
+            } catch (error) {
+                console.error('Error loading operator-mappings.json:', error);
+                renderCategories();
+            }
+        }
+
+        // Render all categories
+        function renderCategories() {
+            const container = document.getElementById('categories-container');
+            container.innerHTML = '';
+
+            const categoryNames = Object.keys(operatorMappings.categories);
+            
+            if (categoryNames.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No categories yet</h3>
+                        <p>Click "Add Category" to create your first category</p>
+                    </div>
+                `;
+                return;
+            }
+
+            categoryNames.forEach(categoryName => {
+                const category = operatorMappings.categories[categoryName];
+                const card = createCategoryCard(categoryName, category);
+                container.appendChild(card);
+            });
+        }
+
+        // Create a category card
+        function createCategoryCard(categoryName, category) {
+            const card = document.createElement('div');
+            card.className = 'category-card';
+            
+            const header = document.createElement('div');
+            header.className = 'category-header';
+            
+            const nameDiv = document.createElement('div');
+            nameDiv.className = 'category-name';
+            nameDiv.textContent = categoryName;
+            
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'category-actions';
+            
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn-secondary btn-small';
+            editBtn.textContent = '✏️ Edit';
+            editBtn.onclick = () => editCategory(categoryName);
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-danger btn-small';
+            deleteBtn.textContent = '🗑️ Delete';
+            deleteBtn.onclick = () => deleteCategory(categoryName);
+            
+            actionsDiv.appendChild(editBtn);
+            actionsDiv.appendChild(deleteBtn);
+            
+            header.appendChild(nameDiv);
+            header.appendChild(actionsDiv);
+            card.appendChild(header);
+            
+            // Keywords section
+            const keywordsTitle = document.createElement('div');
+            keywordsTitle.className = 'section-title';
+            keywordsTitle.textContent = `Keywords (${category.keywords.length})`;
+            card.appendChild(keywordsTitle);
+            
+            const keywordsList = document.createElement('div');
+            keywordsList.className = 'keywords-list';
+            category.keywords.forEach((keyword, index) => {
+                keywordsList.appendChild(createKeywordTag(categoryName, keyword, index));
+            });
+            card.appendChild(keywordsList);
+            
+            // Add keyword section
+            const addKeywordSection = document.createElement('div');
+            addKeywordSection.className = 'add-item-section';
+            addKeywordSection.innerHTML = `
+                <input type="text" placeholder="Add keyword..." id="add-keyword-${categoryName}">
+                <button class="btn-success btn-small" onclick="addKeyword('${categoryName}')">Add</button>
+            `;
+            card.appendChild(addKeywordSection);
+            
+            // Operators section
+            const operatorsTitle = document.createElement('div');
+            operatorsTitle.className = 'section-title';
+            operatorsTitle.textContent = `Operators (${category.operators.length})`;
+            card.appendChild(operatorsTitle);
+            
+            const operatorsList = document.createElement('div');
+            operatorsList.className = 'operators-list';
+            category.operators.forEach((operator, index) => {
+                operatorsList.appendChild(createOperatorTag(categoryName, operator, index));
+            });
+            card.appendChild(operatorsList);
+            
+            // Add operator section
+            const addOperatorSection = document.createElement('div');
+            addOperatorSection.className = 'add-item-section';
+            addOperatorSection.innerHTML = `
+                <input type="text" placeholder="Add operator..." id="add-operator-${categoryName}">
+                <button class="btn-success btn-small" onclick="addOperator('${categoryName}')">Add</button>
+            `;
+            card.appendChild(addOperatorSection);
+            
+            return card;
+        }
+
+        // Create keyword tag
+        function createKeywordTag(categoryName, keyword, index) {
+            const tag = document.createElement('div');
+            tag.className = 'keyword-tag';
+            
+            const text = document.createElement('span');
+            text.className = 'tag-text';
+            text.textContent = keyword;
+            
+            const actions = document.createElement('div');
+            actions.className = 'tag-actions';
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-icon delete';
+            deleteBtn.innerHTML = '✕';
+            deleteBtn.title = 'Delete';
+            deleteBtn.onclick = () => deleteKeyword(categoryName, index);
+            
+            actions.appendChild(deleteBtn);
+            tag.appendChild(text);
+            tag.appendChild(actions);
+            
+            return tag;
+        }
+
+        // Create operator tag
+        function createOperatorTag(categoryName, operator, index) {
+            const tag = document.createElement('div');
+            tag.className = 'operator-tag';
+            
+            const text = document.createElement('span');
+            text.className = 'tag-text';
+            text.textContent = operator;
+            
+            const actions = document.createElement('div');
+            actions.className = 'tag-actions';
+            
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn-icon';
+            editBtn.innerHTML = '✏️';
+            editBtn.title = 'Edit';
+            editBtn.onclick = () => editOperator(categoryName, index);
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'btn-icon delete';
+            deleteBtn.innerHTML = '✕';
+            deleteBtn.title = 'Delete';
+            deleteBtn.onclick = () => deleteOperator(categoryName, index);
+            
+            actions.appendChild(editBtn);
+            actions.appendChild(deleteBtn);
+            tag.appendChild(text);
+            tag.appendChild(actions);
+            
+            return tag;
+        }
+
+        // Add category
+        function addCategory() {
+            editingCategory = null;
+            document.getElementById('category-modal-title').textContent = 'Add Category';
+            document.getElementById('category-name-input').value = '';
+            document.getElementById('category-keywords-input').value = '';
+            document.getElementById('category-operators-input').value = '';
+            document.getElementById('category-name-input').disabled = false;
+            openModal();
+        }
+
+        // Edit category
+        function editCategory(categoryName) {
+            editingCategory = categoryName;
+            const category = operatorMappings.categories[categoryName];
+            
+            document.getElementById('category-modal-title').textContent = 'Edit Category';
+            document.getElementById('category-name-input').value = categoryName;
+            document.getElementById('category-name-input').disabled = true;
+            document.getElementById('category-keywords-input').value = category.keywords.join(', ');
+            document.getElementById('category-operators-input').value = category.operators.join('\n');
+            openModal();
+        }
+
+        // Save category
+        function saveCategory() {
+            const nameInput = document.getElementById('category-name-input');
+            const keywordsInput = document.getElementById('category-keywords-input');
+            const operatorsInput = document.getElementById('category-operators-input');
+            
+            const name = nameInput.value.trim();
+            if (!name) {
+                alert('Category name is required');
+                return;
+            }
+            
+            // Parse keywords (comma-separated)
+            const keywords = keywordsInput.value
+                .split(',')
+                .map(k => k.trim())
+                .filter(k => k.length > 0);
+            
+            // Parse operators (line-separated)
+            const operators = operatorsInput.value
+                .split('\n')
+                .map(o => o.trim())
+                .filter(o => o.length > 0);
+            
+            if (editingCategory && editingCategory !== name) {
+                // Renaming not allowed in edit mode
+                alert('Cannot rename categories. Delete and create a new one instead.');
+                return;
+            }
+            
+            if (!editingCategory && operatorMappings.categories[name]) {
+                alert('A category with this name already exists');
+                return;
+            }
+            
+            operatorMappings.categories[name] = {
+                keywords: keywords,
+                operators: operators
+            };
+            
+            closeModal();
+            renderCategories();
+        }
+
+        // Delete category
+        function deleteCategory(categoryName) {
+            if (confirm(`Are you sure you want to delete the "${categoryName}" category?`)) {
+                delete operatorMappings.categories[categoryName];
+                renderCategories();
+            }
+        }
+
+        // Add keyword
+        function addKeyword(categoryName) {
+            const input = document.getElementById(`add-keyword-${categoryName}`);
+            const keyword = input.value.trim();
+            
+            if (!keyword) {
+                alert('Keyword cannot be empty');
+                return;
+            }
+            
+            const category = operatorMappings.categories[categoryName];
+            if (category.keywords.includes(keyword)) {
+                alert('This keyword already exists');
+                return;
+            }
+            
+            category.keywords.push(keyword);
+            input.value = '';
+            renderCategories();
+        }
+
+        // Delete keyword
+        function deleteKeyword(categoryName, index) {
+            if (confirm('Delete this keyword?')) {
+                operatorMappings.categories[categoryName].keywords.splice(index, 1);
+                renderCategories();
+            }
+        }
+
+        // Add operator
+        function addOperator(categoryName) {
+            const input = document.getElementById(`add-operator-${categoryName}`);
+            const operator = input.value.trim();
+            
+            if (!operator) {
+                alert('Operator cannot be empty');
+                return;
+            }
+            
+            operatorMappings.categories[categoryName].operators.push(operator);
+            input.value = '';
+            renderCategories();
+        }
+
+        // Edit operator
+        function editOperator(categoryName, index) {
+            const category = operatorMappings.categories[categoryName];
+            const currentValue = category.operators[index];
+            const newValue = prompt('Edit operator:', currentValue);
+            
+            if (newValue !== null && newValue.trim() !== '') {
+                category.operators[index] = newValue.trim();
+                renderCategories();
+            }
+        }
+
+        // Delete operator
+        function deleteOperator(categoryName, index) {
+            if (confirm('Delete this operator?')) {
+                operatorMappings.categories[categoryName].operators.splice(index, 1);
+                renderCategories();
+            }
+        }
+
+        // Modal functions
+        function openModal() {
+            document.getElementById('category-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('category-modal').classList.remove('active');
+        }
+
+        // Export JSON
+        function exportJSON() {
+            const dataStr = JSON.stringify(operatorMappings, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'operator-mappings.json';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Import JSON
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    
+                    // Validate structure
+                    if (!imported.categories || typeof imported.categories !== 'object') {
+                        throw new Error('Invalid JSON structure: missing or invalid "categories" object');
+                    }
+                    
+                    // Validate each category
+                    for (const [categoryName, categoryData] of Object.entries(imported.categories)) {
+                        if (!Array.isArray(categoryData.keywords)) {
+                            throw new Error(`Invalid structure for category "${categoryName}": keywords must be an array`);
+                        }
+                        if (!Array.isArray(categoryData.operators)) {
+                            throw new Error(`Invalid structure for category "${categoryName}": operators must be an array`);
+                        }
+                    }
+                    
+                    // If validation passes, update the data
+                    operatorMappings = imported;
+                    renderCategories();
+                    alert('JSON imported successfully!');
+                } catch (error) {
+                    alert('Error importing JSON: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset the input so the same file can be imported again
+            event.target.value = '';
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('category-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'category-modal') {
+                closeModal();
+            }
+        });
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
