@@ -275,8 +275,8 @@ function selectWeightedTemplate(templates, usedTemplates) {
     // Calculate total weight
     const totalWeight = weightedTemplates.reduce((sum, wt) => sum + wt.weight, 0);
     
-    // Edge case: if all weights are 0 or negative (shouldn't happen but safety check)
-    if (totalWeight === 0 || totalWeight < 0) {
+    // Edge case: if all weights are 0, use uniform random selection
+    if (totalWeight === 0) {
         const randomIndex = Math.floor(Math.random() * weightedTemplates.length);
         return weightedTemplates[randomIndex].template;
     }
@@ -348,9 +348,16 @@ function calculateOptionScore(template, templateKey) {
 
 /**
  * Generate a single option using templates and randomization
+ * @param {Array} templates - Array containing exactly one template
  */
 function generateSingleOption(templates) {
-    const template = templates[0]; // Expects single template now
+    // Precondition: templates array should contain exactly one template
+    if (!templates || templates.length === 0) {
+        console.error('generateSingleOption called with empty templates array');
+        return 'Generate new option';
+    }
+    
+    const template = templates[0];
     const normalized = normalizeOperator(template);
     
     // Replace placeholders with contextual or random values
