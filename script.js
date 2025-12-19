@@ -158,11 +158,11 @@ function generateNextStep() {
     const options = generateOptions(numOptions);
     
     // Create option buttons
-    options.forEach((option, index) => {
+    options.forEach((optionData, index) => {
         const button = document.createElement('button');
         button.className = 'option-btn';
-        button.innerHTML = `<span>${option}</span>`;
-        button.addEventListener('click', () => selectOption(option));
+        button.innerHTML = `<span>${optionData.text}</span>`;
+        button.addEventListener('click', () => selectOption(optionData.text, optionData.templateKey));
         optionsContainer.appendChild(button);
     });
 }
@@ -200,7 +200,11 @@ function generateOptions(count) {
     // Rank options before returning
     const rankedOptions = rankOptions(options);
     
-    return rankedOptions.map(opt => opt.text);
+    // Return objects with text and templateKey for proper tracking
+    return rankedOptions.map(opt => ({
+        text: opt.text,
+        templateKey: opt.templateKey
+    }));
 }
 
 /**
@@ -250,13 +254,11 @@ function selectWeightedTemplate(templates, usedTemplates) {
         !usedTemplates.has(t.text)
     );
     
-    if (availableTemplates.length === 0) {
-        // If all templates used, allow reuse
-        return normalizedTemplates[Math.floor(Math.random() * normalizedTemplates.length)];
-    }
+    // If all templates used, allow reuse but still apply weighting
+    const templatesToUse = availableTemplates.length > 0 ? availableTemplates : normalizedTemplates;
     
     // Calculate weights with frequency bias
-    const weightedTemplates = availableTemplates.map(template => {
+    const weightedTemplates = templatesToUse.map(template => {
         const usageCount = operatorUsageCount[template.text] || 0;
         // Frequency bias: reduce weight for frequently used operators
         // Formula: weight / (1 + usageCount * 0.1)
@@ -272,16 +274,22 @@ function selectWeightedTemplate(templates, usedTemplates) {
     // Calculate total weight
     const totalWeight = weightedTemplates.reduce((sum, wt) => sum + wt.weight, 0);
     
+    // Edge case: if all weights are 0, use uniform random selection
+    if (totalWeight <= 0) {
+        const randomIndex = Math.floor(Math.random() * weightedTemplates.length);
+        return weightedTemplates[randomIndex].template;
+    }
+    
     // Select using weighted random
     let random = Math.random() * totalWeight;
     for (const wt of weightedTemplates) {
         random -= wt.weight;
-        if (random <= 0) {
+        if (random < 0) {  // Use < instead of <= to avoid floating-point precision issues
             return wt.template;
         }
     }
     
-    // Fallback to last template
+    // Fallback to last template (should rarely happen)
     return weightedTemplates[weightedTemplates.length - 1].template;
 }
 
@@ -512,11 +520,11 @@ function updateHistoryDisplay() {
 /**
  * Handle option selection
  */
-function selectOption(option) {
-    // Track operator usage for frequency-based biasing
-    // We need to find which template generated this option
-    // For simplicity, we'll track the option text itself
-    operatorUsageCount[option] = (operatorUsageCount[option] || 0) + 1;
+function selectOption(option, templateKey) {
+    // Track operator usage for frequency-based biasing using template key
+    if (templateKey) {
+        operatorUsageCount[templateKey] = (operatorUsageCount[templateKey] || 0) + 1;
+    }
     
     // Add to history
     context.history.push(option);
