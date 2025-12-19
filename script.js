@@ -9,6 +9,7 @@ const MAX_OPTIONS = 6;
 const MAX_RANDOM_NUMBER = 20;
 const GENERIC_TEMPLATE_RATIO = 0.2; // 20% of templates will be generic for variety
 const MAX_ATTEMPTS_MULTIPLIER = 10; // Safety multiplier for selection loops
+const FREQUENCY_BIAS_FACTOR = 0.1; // Factor for reducing weight of frequently used operators
 
 // Cached operator mappings loaded from JSON
 let operatorMappings = null;
@@ -261,8 +262,8 @@ function selectWeightedTemplate(templates, usedTemplates) {
     const weightedTemplates = templatesToUse.map(template => {
         const usageCount = operatorUsageCount[template.text] || 0;
         // Frequency bias: reduce weight for frequently used operators
-        // Formula: weight / (1 + usageCount * 0.1)
-        const frequencyBias = 1 / (1 + usageCount * 0.1);
+        // Formula: weight / (1 + usageCount * FREQUENCY_BIAS_FACTOR)
+        const frequencyBias = 1 / (1 + usageCount * FREQUENCY_BIAS_FACTOR);
         const adjustedWeight = template.weight * frequencyBias;
         
         return {
@@ -274,8 +275,8 @@ function selectWeightedTemplate(templates, usedTemplates) {
     // Calculate total weight
     const totalWeight = weightedTemplates.reduce((sum, wt) => sum + wt.weight, 0);
     
-    // Edge case: if all weights are 0, use uniform random selection
-    if (totalWeight <= 0) {
+    // Edge case: if all weights are 0 or negative (shouldn't happen but safety check)
+    if (totalWeight === 0 || totalWeight < 0) {
         const randomIndex = Math.floor(Math.random() * weightedTemplates.length);
         return weightedTemplates[randomIndex].template;
     }
@@ -562,10 +563,8 @@ function resetApp() {
     context.domain = '';
     context.history = [];
     
-    // Clear operator usage tracking
-    for (const key in operatorUsageCount) {
-        delete operatorUsageCount[key];
-    }
+    // Clear operator usage tracking (efficient clearing)
+    Object.keys(operatorUsageCount).forEach(key => delete operatorUsageCount[key]);
     
     // Clear inputs
     domainInput.value = '';
