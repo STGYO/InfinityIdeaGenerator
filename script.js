@@ -19,6 +19,9 @@ const context = {
     history: []
 };
 
+// Operator usage tracking for frequency-based biasing
+const operatorUsageCount = {};
+
 // DOM elements
 const domainInputScreen = document.getElementById('domain-input-screen');
 const generationScreen = document.getElementById('generation-screen');
@@ -168,30 +171,181 @@ function generateNextStep() {
  * Generate creative options based on current context
  */
 function generateOptions(count) {
-    const options = new Set();
+    const options = [];
     const templates = getTemplatesForDomain();
     
     // Generate unique options (prevent duplicates)
     let attempts = 0;
-    const maxAttempts = count * 10; // Prevent infinite loop
+    const maxAttempts = count * MAX_ATTEMPTS_MULTIPLIER;
+    const usedTemplates = new Set();
     
-    while (options.size < count && attempts < maxAttempts) {
-        const option = generateSingleOption(templates);
-        options.add(option);
+    while (options.length < count && attempts < maxAttempts) {
+        const selectedTemplate = selectWeightedTemplate(templates, usedTemplates);
+        if (selectedTemplate) {
+            const option = generateSingleOption([selectedTemplate]);
+            // Check for duplicate generated text
+            if (!options.some(opt => opt.text === option)) {
+                const templateKey = getTemplateKey(selectedTemplate);
+                options.push({
+                    text: option,
+                    template: selectedTemplate,
+                    templateKey: templateKey
+                });
+                usedTemplates.add(templateKey);
+            }
+        }
         attempts++;
     }
     
-    return Array.from(options);
+    // Rank options before returning
+    const rankedOptions = rankOptions(options);
+    
+    return rankedOptions.map(opt => opt.text);
+}
+
+/**
+ * Normalize operator to a standard format
+ * Supports both string operators and object operators with metadata
+ */
+function normalizeOperator(operator) {
+    if (typeof operator === 'string') {
+        // Backward compatibility: string operators get default values
+        return {
+            text: operator,
+            weight: 1.0,
+            difficulty: 'medium',
+            phase: 'exploration'
+        };
+    }
+    // Object operator: fill in missing fields with defaults
+    return {
+        text: operator.text,
+        weight: operator.weight !== undefined ? operator.weight : 1.0,
+        difficulty: operator.difficulty || 'medium',
+        phase: operator.phase || 'exploration'
+    };
+}
+
+/**
+ * Get a unique key for a template (handles both string and object templates)
+ */
+function getTemplateKey(template) {
+    if (typeof template === 'string') {
+        return template;
+    }
+    return template.text;
+}
+
+/**
+ * Select a template using weighted random selection with frequency bias
+ */
+function selectWeightedTemplate(templates, usedTemplates) {
+    if (templates.length === 0) return null;
+    
+    // Normalize all templates
+    const normalizedTemplates = templates.map(normalizeOperator);
+    
+    // Filter out already used templates
+    const availableTemplates = normalizedTemplates.filter(t => 
+        !usedTemplates.has(t.text)
+    );
+    
+    if (availableTemplates.length === 0) {
+        // If all templates used, allow reuse
+        return normalizedTemplates[Math.floor(Math.random() * normalizedTemplates.length)];
+    }
+    
+    // Calculate weights with frequency bias
+    const weightedTemplates = availableTemplates.map(template => {
+        const usageCount = operatorUsageCount[template.text] || 0;
+        // Frequency bias: reduce weight for frequently used operators
+        // Formula: weight / (1 + usageCount * 0.1)
+        const frequencyBias = 1 / (1 + usageCount * 0.1);
+        const adjustedWeight = template.weight * frequencyBias;
+        
+        return {
+            template: template,
+            weight: adjustedWeight
+        };
+    });
+    
+    // Calculate total weight
+    const totalWeight = weightedTemplates.reduce((sum, wt) => sum + wt.weight, 0);
+    
+    // Select using weighted random
+    let random = Math.random() * totalWeight;
+    for (const wt of weightedTemplates) {
+        random -= wt.weight;
+        if (random <= 0) {
+            return wt.template;
+        }
+    }
+    
+    // Fallback to last template
+    return weightedTemplates[weightedTemplates.length - 1].template;
+}
+
+/**
+ * Rank generated options by relevance and quality
+ */
+function rankOptions(options) {
+    return options.sort((a, b) => {
+        const templateA = normalizeOperator(a.template);
+        const templateB = normalizeOperator(b.template);
+        
+        // Calculate scores for each option
+        const scoreA = calculateOptionScore(templateA, a.templateKey);
+        const scoreB = calculateOptionScore(templateB, b.templateKey);
+        
+        // Higher scores come first
+        return scoreB - scoreA;
+    });
+}
+
+/**
+ * Calculate a relevance score for an option
+ */
+function calculateOptionScore(template, templateKey) {
+    let score = 0;
+    
+    // Base score from weight (higher weight = higher priority)
+    score += template.weight * 10;
+    
+    // Frequency bonus: less used operators get a boost
+    const usageCount = operatorUsageCount[templateKey] || 0;
+    score += Math.max(0, 5 - usageCount);
+    
+    // Phase-based scoring (context-aware)
+    const historyLength = context.history.length;
+    if (historyLength <= 2 && template.phase === 'exploration') {
+        score += 3; // Prefer exploration early
+    } else if (historyLength > 2 && historyLength <= 5 && template.phase === 'refinement') {
+        score += 3; // Prefer refinement in middle
+    } else if (historyLength > 5 && template.phase === 'validation') {
+        score += 3; // Prefer validation later
+    }
+    
+    // Difficulty-based scoring (progressive difficulty)
+    if (historyLength <= 2 && template.difficulty === 'low') {
+        score += 2; // Prefer easier options early
+    } else if (historyLength > 2 && historyLength <= 5 && template.difficulty === 'medium') {
+        score += 2;
+    } else if (historyLength > 5 && template.difficulty === 'high') {
+        score += 2; // Prefer challenging options later
+    }
+    
+    return score;
 }
 
 /**
  * Generate a single option using templates and randomization
  */
 function generateSingleOption(templates) {
-    const template = templates[Math.floor(Math.random() * templates.length)];
+    const template = templates[0]; // Expects single template now
+    const normalized = normalizeOperator(template);
     
     // Replace placeholders with contextual or random values
-    let option = template;
+    let option = normalized.text;
     
     // Replace {domain} with actual domain
     option = option.replace(/{domain}/g, context.domain);
@@ -300,13 +454,13 @@ function getTemplatesForDomain() {
         domainTemplates.push(...shuffled.slice(0, defaultCount));
     }
     
-    // Add context-aware templates based on history
+    // Add context-aware templates based on history (with metadata)
     if (context.history.length > 2) {
         domainTemplates.push(
-            'Pivot to opposite direction',
-            'Return to initial concept',
-            'Merge last 2 ideas',
-            'Challenge the core assumption'
+            { text: 'Pivot to opposite direction', weight: 1.5, difficulty: 'high', phase: 'validation' },
+            { text: 'Return to initial concept', weight: 1.3, difficulty: 'medium', phase: 'validation' },
+            { text: 'Merge last 2 ideas', weight: 1.4, difficulty: 'medium', phase: 'refinement' },
+            { text: 'Challenge the core assumption', weight: 1.6, difficulty: 'high', phase: 'validation' }
         );
     }
     
@@ -359,6 +513,11 @@ function updateHistoryDisplay() {
  * Handle option selection
  */
 function selectOption(option) {
+    // Track operator usage for frequency-based biasing
+    // We need to find which template generated this option
+    // For simplicity, we'll track the option text itself
+    operatorUsageCount[option] = (operatorUsageCount[option] || 0) + 1;
+    
     // Add to history
     context.history.push(option);
     
@@ -394,6 +553,11 @@ function resetApp() {
     // Clear context
     context.domain = '';
     context.history = [];
+    
+    // Clear operator usage tracking
+    for (const key in operatorUsageCount) {
+        delete operatorUsageCount[key];
+    }
     
     // Clear inputs
     domainInput.value = '';
