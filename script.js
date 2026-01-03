@@ -28,11 +28,20 @@ class HistoryNode {
     }
 }
 
+// Phase configuration
+const PHASES = {
+    EXPLORATION: { name: 'Exploration', stepRange: [0, 3], color: '#667eea' },
+    REFINEMENT: { name: 'Refinement', stepRange: [4, 7], color: '#764ba2' },
+    VALIDATION: { name: 'Validation', stepRange: [8, Infinity], color: '#4caf50' }
+};
+
 // Context object to store domain and history tree
 const context = {
     domain: '',
     rootNode: null,      // Root of the history tree
-    currentNode: null    // Current position in the tree
+    currentNode: null,   // Current position in the tree
+    currentPhase: 'EXPLORATION',  // Current phase: EXPLORATION, REFINEMENT, or VALIDATION
+    manualPhaseOverride: null    // Manual phase override (null if auto-advancing)
 };
 
 // Operator usage tracking for frequency-based biasing
@@ -45,6 +54,9 @@ const domainInput = document.getElementById('domain-input');
 const startBtn = document.getElementById('start-btn');
 const domainError = document.getElementById('domain-error');
 const currentDomainDisplay = document.getElementById('current-domain');
+const currentPhaseDisplay = document.getElementById('current-phase');
+const phaseDescriptionDisplay = document.getElementById('phase-description');
+const phaseOverrideButtons = document.querySelectorAll('.phase-override-btn');
 const historyPath = document.getElementById('history-path');
 const generationPrompt = document.getElementById('generation-prompt');
 const optionsContainer = document.getElementById('options-container');
@@ -110,6 +122,14 @@ async function init() {
     exportMarkdownBtn.addEventListener('click', exportAsMarkdown);
     exportJsonBtn.addEventListener('click', exportAsJSON);
     
+    // Phase override button listeners
+    phaseOverrideButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const phaseKey = btn.dataset.phase;
+            handlePhaseOverride(phaseKey);
+        });
+    });
+    
     // Event delegation for history path clicks
     historyPath.addEventListener('click', handleHistoryClick);
     
@@ -126,7 +146,9 @@ function saveStateToLocalStorage() {
             domain: context.domain,
             rootNode: serializeNode(context.rootNode),
             currentNodeId: context.currentNode ? context.currentNode.id : null,
-            operatorUsageCount: { ...operatorUsageCount }
+            operatorUsageCount: { ...operatorUsageCount },
+            currentPhase: context.currentPhase,
+            manualPhaseOverride: context.manualPhaseOverride
         };
         localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(state));
     } catch (error) {
@@ -157,6 +179,14 @@ function loadStateFromLocalStorage() {
             // Restore operator usage count
             if (state.operatorUsageCount) {
                 Object.assign(operatorUsageCount, state.operatorUsageCount);
+            }
+            
+            // Restore phase state
+            if (state.currentPhase) {
+                context.currentPhase = state.currentPhase;
+            }
+            if (state.manualPhaseOverride !== undefined) {
+                context.manualPhaseOverride = state.manualPhaseOverride;
             }
             
             // Switch to generation screen and display state
@@ -262,8 +292,14 @@ function generateNextStep() {
     optionsContainer.innerHTML = '';
     customInput.value = '';
     
+    // Update current phase based on step count
+    updateCurrentPhase();
+    
     // Update history display
     updateHistoryDisplay();
+    
+    // Update phase display
+    updatePhaseDisplay();
     
     // Update prompt
     updatePrompt();
@@ -438,23 +474,24 @@ function calculateOptionScore(template, templateKey) {
     const usageCount = operatorUsageCount[templateKey] || 0;
     score += Math.max(0, 5 - usageCount);
     
-    // Phase-based scoring (context-aware)
-    const currentPath = getCurrentPath();
-    const historyLength = currentPath.length;
-    if (historyLength <= 2 && template.phase === 'exploration') {
-        score += 3; // Prefer exploration early
-    } else if (historyLength > 2 && historyLength <= 5 && template.phase === 'refinement') {
-        score += 3; // Prefer refinement in middle
-    } else if (historyLength > 5 && template.phase === 'validation') {
-        score += 3; // Prefer validation later
+    // Phase-based scoring (strongly prefer operators matching current phase)
+    const currentPhase = context.currentPhase.toLowerCase();
+    const templatePhase = template.phase.toLowerCase();
+    
+    if (currentPhase === templatePhase) {
+        score += 10; // Strong bonus for phase match
+    } else if (currentPhase === 'refinement' && templatePhase === 'exploration') {
+        score += 2; // Small bonus for adjacent phase
+    } else if (currentPhase === 'validation' && templatePhase === 'refinement') {
+        score += 2; // Small bonus for adjacent phase
     }
     
-    // Difficulty-based scoring (progressive difficulty)
-    if (historyLength <= 2 && template.difficulty === 'low') {
+    // Difficulty-based scoring (progressive difficulty aligned with phases)
+    if (currentPhase === 'exploration' && template.difficulty === 'low') {
         score += 2; // Prefer easier options early
-    } else if (historyLength > 2 && historyLength <= 5 && template.difficulty === 'medium') {
+    } else if (currentPhase === 'refinement' && template.difficulty === 'medium') {
         score += 2;
-    } else if (historyLength > 5 && template.difficulty === 'high') {
+    } else if (currentPhase === 'validation' && template.difficulty === 'high') {
         score += 2; // Prefer challenging options later
     }
     
@@ -636,6 +673,37 @@ function getCurrentPath() {
 }
 
 /**
+ * Determine the appropriate phase based on step count
+ * Returns the phase key (EXPLORATION, REFINEMENT, or VALIDATION)
+ */
+function determinePhaseFromSteps(stepCount) {
+    // Check manual override first
+    if (context.manualPhaseOverride) {
+        return context.manualPhaseOverride;
+    }
+    
+    // Auto-advance based on step count
+    for (const [phaseKey, phaseData] of Object.entries(PHASES)) {
+        const [minStep, maxStep] = phaseData.stepRange;
+        if (stepCount >= minStep && stepCount <= maxStep) {
+            return phaseKey;
+        }
+    }
+    
+    // Default to validation for very high step counts
+    return 'VALIDATION';
+}
+
+/**
+ * Update the current phase based on history length
+ */
+function updateCurrentPhase() {
+    const currentPath = getCurrentPath();
+    const stepCount = currentPath.length;
+    context.currentPhase = determinePhaseFromSteps(stepCount);
+}
+
+/**
  * Update the history display
  */
 function updateHistoryDisplay() {
@@ -670,6 +738,66 @@ function updateHistoryDisplay() {
         
         historyPath.appendChild(item);
     });
+}
+
+/**
+ * Update the phase display in the UI
+ */
+function updatePhaseDisplay() {
+    if (!currentPhaseDisplay || !phaseDescriptionDisplay) {
+        return; // Elements not present in UI
+    }
+    
+    const phaseData = PHASES[context.currentPhase];
+    const currentPath = getCurrentPath();
+    const stepCount = currentPath.length;
+    
+    // Update phase name with color
+    currentPhaseDisplay.textContent = phaseData.name;
+    currentPhaseDisplay.style.color = phaseData.color;
+    
+    // Update phase description
+    const descriptions = {
+        'EXPLORATION': `Expansive thinking - exploring broad possibilities (steps 1-3)`,
+        'REFINEMENT': `Focused refinement - making ideas concrete (steps 4-7)`,
+        'VALIDATION': `Executable validation - ensuring ideas are actionable (step 8+)`
+    };
+    phaseDescriptionDisplay.textContent = descriptions[context.currentPhase];
+    
+    // Update phase override buttons active state
+    phaseOverrideButtons.forEach(btn => {
+        const btnPhase = btn.dataset.phase;
+        if (btnPhase === context.currentPhase) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+        
+        // Show if manual override is active
+        if (context.manualPhaseOverride) {
+            btn.classList.add('override-active');
+        } else {
+            btn.classList.remove('override-active');
+        }
+    });
+}
+
+/**
+ * Handle phase override button clicks
+ */
+function handlePhaseOverride(phaseKey) {
+    if (context.manualPhaseOverride === phaseKey) {
+        // Clicking the same phase again removes override (back to auto)
+        context.manualPhaseOverride = null;
+    } else {
+        // Set manual override
+        context.manualPhaseOverride = phaseKey;
+    }
+    
+    // Update phase and regenerate
+    updateCurrentPhase();
+    saveStateToLocalStorage();
+    generateNextStep();
 }
 
 /**
@@ -805,6 +933,8 @@ function resetApp() {
     context.domain = '';
     context.rootNode = null;
     context.currentNode = null;
+    context.currentPhase = 'EXPLORATION';
+    context.manualPhaseOverride = null;
     
     // Clear operator usage tracking (efficient clearing)
     Object.keys(operatorUsageCount).forEach(key => delete operatorUsageCount[key]);
@@ -847,15 +977,27 @@ function exportAsMarkdown() {
     let markdown = `# Infinity Idea Generator - Idea Path\n\n`;
     markdown += `**Domain:** ${context.domain}\n`;
     markdown += `**Date:** ${timestamp}\n`;
-    markdown += `**Steps:** ${currentPath.length}\n\n`;
+    markdown += `**Steps:** ${currentPath.length}\n`;
+    markdown += `**Current Phase:** ${PHASES[context.currentPhase].name}\n\n`;
     markdown += `## Idea Evolution Path\n\n`;
     
     if (currentPath.length === 0) {
         markdown += `_No choices made yet_\n`;
     } else {
+        // Temporarily clear manual override to get natural phase progression
+        const savedOverride = context.manualPhaseOverride;
+        context.manualPhaseOverride = null;
+        
         currentPath.forEach((choice, index) => {
-            markdown += `${index + 1}. ${choice}\n`;
+            // Determine phase for this step (index + 1 = step number = stepCount at that point)
+            const stepCount = index + 1;
+            const stepPhase = determinePhaseFromSteps(stepCount);
+            const phaseName = PHASES[stepPhase].name;
+            markdown += `${stepCount}. [${phaseName}] ${choice}\n`;
         });
+        
+        // Restore manual override
+        context.manualPhaseOverride = savedOverride;
     }
     
     markdown += `\n---\n_Generated by Infinity Idea Generator_\n`;
@@ -875,17 +1017,47 @@ function exportAsJSON() {
     const exportData = {
         domain: context.domain,
         exportDate: timestamp,
+        currentPhase: context.currentPhase,
+        manualPhaseOverride: context.manualPhaseOverride,
         currentPath: currentPath,
         fullTree: serializeNode(context.rootNode),
         stats: {
             totalSteps: currentPath.length,
-            totalNodes: countNodes(context.rootNode)
+            totalNodes: countNodes(context.rootNode),
+            phaseDistribution: calculatePhaseDistribution(currentPath)
         }
     };
     
     const json = JSON.stringify(exportData, null, 2);
     const dateStr = timestamp.split('T')[0];
     downloadFile(`idea-path-${dateStr}.json`, json, 'application/json');
+}
+
+/**
+ * Calculate phase distribution across the path
+ */
+function calculatePhaseDistribution(path) {
+    const distribution = {
+        EXPLORATION: 0,
+        REFINEMENT: 0,
+        VALIDATION: 0
+    };
+    
+    // Temporarily clear manual override to get natural phase progression
+    const savedOverride = context.manualPhaseOverride;
+    context.manualPhaseOverride = null;
+    
+    path.forEach((_, index) => {
+        // Use step count (index + 1) to determine phase
+        const stepCount = index + 1;
+        const phase = determinePhaseFromSteps(stepCount);
+        distribution[phase]++;
+    });
+    
+    // Restore manual override
+    context.manualPhaseOverride = savedOverride;
+    
+    return distribution;
 }
 
 /**
