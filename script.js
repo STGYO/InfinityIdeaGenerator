@@ -30,10 +30,17 @@ class HistoryNode {
 
 // Phase configuration
 const PHASES = {
-    EXPLORATION: { name: 'Exploration', stepRange: [0, 3], color: '#667eea' },
-    REFINEMENT: { name: 'Refinement', stepRange: [4, 7], color: '#764ba2' },
-    VALIDATION: { name: 'Validation', stepRange: [8, Infinity], color: '#4caf50' }
+    EXPLORATION: { name: 'Exploration', stepRange: [0, 3], color: '#667eea', order: 0 },
+    REFINEMENT: { name: 'Refinement', stepRange: [4, 7], color: '#764ba2', order: 1 },
+    VALIDATION: { name: 'Validation', stepRange: [8, Infinity], color: '#4caf50', order: 2 }
 };
+
+/**
+ * Get phase order difference (for adjacency calculation)
+ */
+function getPhaseOrderDiff(phase1, phase2) {
+    return Math.abs(PHASES[phase1].order - PHASES[phase2].order);
+}
 
 // Context object to store domain and history tree
 const context = {
@@ -475,23 +482,24 @@ function calculateOptionScore(template, templateKey) {
     score += Math.max(0, 5 - usageCount);
     
     // Phase-based scoring (strongly prefer operators matching current phase)
-    const currentPhase = context.currentPhase.toLowerCase();
-    const templatePhase = template.phase.toLowerCase();
+    const currentPhase = context.currentPhase;
+    const templatePhase = template.phase.toUpperCase();
     
-    if (currentPhase === templatePhase) {
-        score += 10; // Strong bonus for phase match
-    } else if (currentPhase === 'refinement' && templatePhase === 'exploration') {
-        score += 2; // Small bonus for adjacent phase
-    } else if (currentPhase === 'validation' && templatePhase === 'refinement') {
+    const phaseDiff = getPhaseOrderDiff(currentPhase, templatePhase);
+    
+    if (phaseDiff === 0) {
+        score += 10; // Strong bonus for exact phase match
+    } else if (phaseDiff === 1) {
         score += 2; // Small bonus for adjacent phase
     }
     
     // Difficulty-based scoring (progressive difficulty aligned with phases)
-    if (currentPhase === 'exploration' && template.difficulty === 'low') {
+    const phaseOrder = PHASES[currentPhase].order;
+    if (phaseOrder === 0 && template.difficulty === 'low') {
         score += 2; // Prefer easier options early
-    } else if (currentPhase === 'refinement' && template.difficulty === 'medium') {
+    } else if (phaseOrder === 1 && template.difficulty === 'medium') {
         score += 2;
-    } else if (currentPhase === 'validation' && template.difficulty === 'high') {
+    } else if (phaseOrder === 2 && template.difficulty === 'high') {
         score += 2; // Prefer challenging options later
     }
     
@@ -675,10 +683,12 @@ function getCurrentPath() {
 /**
  * Determine the appropriate phase based on step count
  * Returns the phase key (EXPLORATION, REFINEMENT, or VALIDATION)
+ * @param {number} stepCount - The step count to determine phase for
+ * @param {boolean} respectOverride - Whether to respect manual override (default: true)
  */
-function determinePhaseFromSteps(stepCount) {
-    // Check manual override first
-    if (context.manualPhaseOverride) {
+function determinePhaseFromSteps(stepCount, respectOverride = true) {
+    // Check manual override first (if enabled)
+    if (respectOverride && context.manualPhaseOverride) {
         return context.manualPhaseOverride;
     }
     
@@ -741,6 +751,27 @@ function updateHistoryDisplay() {
 }
 
 /**
+ * Get human-readable step range for a phase
+ */
+function getPhaseStepRangeText(phaseKey) {
+    const range = PHASES[phaseKey].stepRange;
+    const [min, max] = range;
+    
+    // Special handling for initial step (0) and infinity
+    const minDisplay = min === 0 ? 1 : min + 1;
+    
+    if (max === Infinity) {
+        return `step ${minDisplay}+`;
+    } else {
+        const maxDisplay = max + 1;
+        if (minDisplay === maxDisplay) {
+            return `step ${minDisplay}`;
+        }
+        return `steps ${minDisplay}-${maxDisplay}`;
+    }
+}
+
+/**
  * Update the phase display in the UI
  */
 function updatePhaseDisplay() {
@@ -758,9 +789,9 @@ function updatePhaseDisplay() {
     
     // Update phase description
     const descriptions = {
-        'EXPLORATION': `Expansive thinking - exploring broad possibilities (steps 1-3)`,
-        'REFINEMENT': `Focused refinement - making ideas concrete (steps 4-7)`,
-        'VALIDATION': `Executable validation - ensuring ideas are actionable (step 8+)`
+        'EXPLORATION': `Expansive thinking - exploring broad possibilities (${getPhaseStepRangeText('EXPLORATION')})`,
+        'REFINEMENT': `Focused refinement - making ideas concrete (${getPhaseStepRangeText('REFINEMENT')})`,
+        'VALIDATION': `Executable validation - ensuring ideas are actionable (${getPhaseStepRangeText('VALIDATION')})`
     };
     phaseDescriptionDisplay.textContent = descriptions[context.currentPhase];
     
@@ -984,20 +1015,14 @@ function exportAsMarkdown() {
     if (currentPath.length === 0) {
         markdown += `_No choices made yet_\n`;
     } else {
-        // Temporarily clear manual override to get natural phase progression
-        const savedOverride = context.manualPhaseOverride;
-        context.manualPhaseOverride = null;
-        
         currentPath.forEach((choice, index) => {
             // Determine phase for this step (index + 1 = step number = stepCount at that point)
+            // Don't respect override to show natural phase progression
             const stepCount = index + 1;
-            const stepPhase = determinePhaseFromSteps(stepCount);
+            const stepPhase = determinePhaseFromSteps(stepCount, false);
             const phaseName = PHASES[stepPhase].name;
             markdown += `${stepCount}. [${phaseName}] ${choice}\n`;
         });
-        
-        // Restore manual override
-        context.manualPhaseOverride = savedOverride;
     }
     
     markdown += `\n---\n_Generated by Infinity Idea Generator_\n`;
@@ -1043,19 +1068,13 @@ function calculatePhaseDistribution(path) {
         VALIDATION: 0
     };
     
-    // Temporarily clear manual override to get natural phase progression
-    const savedOverride = context.manualPhaseOverride;
-    context.manualPhaseOverride = null;
-    
     path.forEach((_, index) => {
         // Use step count (index + 1) to determine phase
+        // Don't respect override to show natural phase progression
         const stepCount = index + 1;
-        const phase = determinePhaseFromSteps(stepCount);
+        const phase = determinePhaseFromSteps(stepCount, false);
         distribution[phase]++;
     });
-    
-    // Restore manual override
-    context.manualPhaseOverride = savedOverride;
     
     return distribution;
 }
