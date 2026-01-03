@@ -10,6 +10,7 @@ const MAX_RANDOM_NUMBER = 20;
 const GENERIC_TEMPLATE_RATIO = 0.2; // 20% of templates will be generic for variety
 const MAX_ATTEMPTS_MULTIPLIER = 10; // Safety multiplier for selection loops
 const FREQUENCY_BIAS_FACTOR = 0.1; // Factor for reducing weight of frequently used operators
+const LOCALSTORAGE_KEY = 'infinityIdeaGenerator_state'; // Key for localStorage persistence
 
 // Cached operator mappings loaded from JSON
 let operatorMappings = null;
@@ -51,6 +52,8 @@ const customInput = document.getElementById('custom-input');
 const customSubmitBtn = document.getElementById('custom-submit-btn');
 const customError = document.getElementById('custom-error');
 const resetBtn = document.getElementById('reset-btn');
+const exportMarkdownBtn = document.getElementById('export-markdown-btn');
+const exportJsonBtn = document.getElementById('export-json-btn');
 
 /**
  * Load operator mappings from JSON file
@@ -104,9 +107,99 @@ async function init() {
     });
     
     resetBtn.addEventListener('click', resetApp);
+    exportMarkdownBtn.addEventListener('click', exportAsMarkdown);
+    exportJsonBtn.addEventListener('click', exportAsJSON);
     
     // Event delegation for history path clicks
     historyPath.addEventListener('click', handleHistoryClick);
+    
+    // Try to restore previous session from localStorage
+    loadStateFromLocalStorage();
+}
+
+/**
+ * Save current state to localStorage
+ */
+function saveStateToLocalStorage() {
+    try {
+        const state = {
+            domain: context.domain,
+            rootNode: serializeNode(context.rootNode),
+            currentNodeId: context.currentNode ? context.currentNode.id : null,
+            operatorUsageCount: { ...operatorUsageCount }
+        };
+        localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(state));
+    } catch (error) {
+        console.error('Failed to save session state to localStorage:', error);
+    }
+}
+
+/**
+ * Load state from localStorage and restore session
+ */
+function loadStateFromLocalStorage() {
+    try {
+        const savedState = localStorage.getItem(LOCALSTORAGE_KEY);
+        if (!savedState) return;
+        
+        const state = JSON.parse(savedState);
+        
+        // Restore domain and tree
+        if (state.domain && state.rootNode) {
+            context.domain = state.domain;
+            context.rootNode = deserializeNode(state.rootNode);
+            
+            // Find and set current node
+            if (state.currentNodeId) {
+                context.currentNode = findNodeById(context.rootNode, state.currentNodeId);
+            }
+            
+            // Restore operator usage count
+            if (state.operatorUsageCount) {
+                Object.assign(operatorUsageCount, state.operatorUsageCount);
+            }
+            
+            // Switch to generation screen and display state
+            domainInputScreen.classList.remove('active');
+            generationScreen.classList.add('active');
+            currentDomainDisplay.textContent = context.domain;
+            generateNextStep();
+        }
+    } catch (error) {
+        console.error('Failed to restore session from localStorage:', error);
+        // If there's an error, clear the corrupted data
+        localStorage.removeItem(LOCALSTORAGE_KEY);
+    }
+}
+
+/**
+ * Serialize a tree node for storage
+ */
+function serializeNode(node) {
+    if (!node) return null;
+    
+    return {
+        id: node.id,
+        choice: node.choice,
+        children: node.children.map(child => serializeNode(child))
+    };
+}
+
+/**
+ * Deserialize a node from storage and reconstruct the tree
+ */
+function deserializeNode(data, parent = null) {
+    if (!data) return null;
+    
+    const node = new HistoryNode(data.choice, parent);
+    node.id = data.id; // Preserve original ID
+    
+    // Recursively deserialize children
+    if (data.children && data.children.length > 0) {
+        node.children = data.children.map(childData => deserializeNode(childData, node));
+    }
+    
+    return node;
 }
 
 /**
@@ -146,6 +239,9 @@ function startGeneration() {
     context.domain = domain;
     context.rootNode = null;
     context.currentNode = null;
+    
+    // Save initial state
+    saveStateToLocalStorage();
     
     // Switch screens
     domainInputScreen.classList.remove('active');
@@ -583,6 +679,9 @@ function navigateToNode(node) {
     // Set this node as the current node
     context.currentNode = node;
     
+    // Save state to localStorage
+    saveStateToLocalStorage();
+    
     // Regenerate options from this point
     generateNextStep();
 }
@@ -647,6 +746,9 @@ function selectOption(option, templateKey) {
     // Move to the new node
     context.currentNode = newNode;
     
+    // Save state to localStorage
+    saveStateToLocalStorage();
+    
     // Generate next set of options (infinite loop)
     generateNextStep();
 }
@@ -679,6 +781,9 @@ function handleCustomInput() {
     // Move to the new node
     context.currentNode = newNode;
     
+    // Save state to localStorage
+    saveStateToLocalStorage();
+    
     // Generate next set of options (infinite loop)
     generateNextStep();
 }
@@ -687,6 +792,15 @@ function handleCustomInput() {
  * Reset the app to initial state
  */
 function resetApp() {
+    // Confirm before resetting to prevent accidental data loss
+    const hasData = context.domain || context.rootNode;
+    if (hasData) {
+        const confirmed = confirm('Are you sure you want to reset? This will clear your current session and saved progress.');
+        if (!confirmed) {
+            return;
+        }
+    }
+    
     // Clear context
     context.domain = '';
     context.rootNode = null;
@@ -694,6 +808,9 @@ function resetApp() {
     
     // Clear operator usage tracking (efficient clearing)
     Object.keys(operatorUsageCount).forEach(key => delete operatorUsageCount[key]);
+    
+    // Clear localStorage
+    localStorage.removeItem(LOCALSTORAGE_KEY);
     
     // Clear inputs
     domainInput.value = '';
@@ -705,6 +822,97 @@ function resetApp() {
     
     // Focus on domain input
     domainInput.focus();
+}
+
+/**
+ * Validate that a session exists for export
+ */
+function validateSessionForExport() {
+    if (!context.domain) {
+        alert('No session to export. Please start generating ideas first.');
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Export current idea path as Markdown
+ */
+function exportAsMarkdown() {
+    if (!validateSessionForExport()) return;
+    
+    const currentPath = getCurrentPath();
+    const timestamp = new Date().toISOString().split('T')[0];
+    
+    let markdown = `# Infinity Idea Generator - Idea Path\n\n`;
+    markdown += `**Domain:** ${context.domain}\n`;
+    markdown += `**Date:** ${timestamp}\n`;
+    markdown += `**Steps:** ${currentPath.length}\n\n`;
+    markdown += `## Idea Evolution Path\n\n`;
+    
+    if (currentPath.length === 0) {
+        markdown += `_No choices made yet_\n`;
+    } else {
+        currentPath.forEach((choice, index) => {
+            markdown += `${index + 1}. ${choice}\n`;
+        });
+    }
+    
+    markdown += `\n---\n_Generated by Infinity Idea Generator_\n`;
+    
+    downloadFile(`idea-path-${timestamp}.md`, markdown, 'text/markdown');
+}
+
+/**
+ * Export current idea path as JSON
+ */
+function exportAsJSON() {
+    if (!validateSessionForExport()) return;
+    
+    const currentPath = getCurrentPath();
+    const timestamp = new Date().toISOString();
+    
+    const exportData = {
+        domain: context.domain,
+        exportDate: timestamp,
+        currentPath: currentPath,
+        fullTree: serializeNode(context.rootNode),
+        stats: {
+            totalSteps: currentPath.length,
+            totalNodes: countNodes(context.rootNode)
+        }
+    };
+    
+    const json = JSON.stringify(exportData, null, 2);
+    const dateStr = timestamp.split('T')[0];
+    downloadFile(`idea-path-${dateStr}.json`, json, 'application/json');
+}
+
+/**
+ * Count total nodes in tree
+ */
+function countNodes(node) {
+    if (!node) return 0;
+    let count = 1;
+    node.children.forEach(child => {
+        count += countNodes(child);
+    });
+    return count;
+}
+
+/**
+ * Download a file with given content
+ */
+function downloadFile(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
 
 // Initialize app when DOM is ready

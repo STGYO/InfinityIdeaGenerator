@@ -12,7 +12,11 @@ The Infinity Idea Generator is an interactive web application that helps you exp
 - **Infinite Loop**: Each choice generates 4-6 new options, creating an endless exploration path
 - **Custom Input**: Not satisfied with the options? Enter your own custom ideas at any step
 - **Context Tracking**: The app maintains your domain and choice history to generate contextually relevant suggestions
+- **Auto-Save & Resume**: Your session automatically saves to localStorage and resumes on page reload
+- **Export Options**: Export your idea path as clean Markdown or structured JSON
+- **Manual Reset**: Clear your session with a confirmation dialog to prevent accidental data loss
 - **Clean UI**: Modern, responsive design that works on desktop and mobile
+- **Offline-Ready**: Works completely offline with no backend or external dependencies
 - **No Dependencies**: Pure vanilla JavaScript—no frameworks or external libraries required
 
 ## 📁 Project Structure
@@ -36,9 +40,13 @@ InfinityIdeaGenerator/
 
 3. **Infinite Exploration**: Each choice updates the context (domain + history) and generates new options, creating an infinite loop of idea refinement
 
-4. **Track Your Path**: Your choice history is displayed at the top, showing how your ideas have evolved
+4. **Track Your Path**: Your choice history is displayed at the top, showing how your ideas have evolved. Click on any step to navigate back to that point in your exploration.
 
-5. **Start Over**: Click "Start Over" at any time to begin a new exploration
+5. **Auto-Save**: Your session is automatically saved to your browser's localStorage. Refresh the page anytime—your progress will be preserved.
+
+6. **Export Your Ideas**: Click "Export as Markdown" or "Export as JSON" to download your idea path for use in other tools or documentation.
+
+7. **Reset Session**: Click "Reset Session" to clear your current session and start fresh (with confirmation to prevent accidental data loss).
 
 ## 🛠️ Technical Details
 
@@ -69,7 +77,7 @@ The app maintains a simple context object throughout the session:
 All functionality runs entirely in the browser:
 - No API calls
 - No server-side processing
-- No data persistence (session-based only)
+- localStorage-based persistence (optional, client-side only)
 - No external dependencies
 
 ## 🚀 Getting Started
@@ -132,21 +140,22 @@ This project is licensed under the GNU Lesser General Public License v2.1 - see 
 
 ## 🤝 Contributing
 
-Contributions are welcome! Since this is a minimal MVP, consider:
+Contributions are welcome! Consider:
 - Adding more sophisticated generation templates
-- Implementing domain-specific logic
-- Adding export/save functionality
+- Implementing additional domain-specific logic
 - Enhancing the UI/UX
 - Improving mobile responsiveness
+- Adding visual tree view
+- Implementing share via URL functionality
 
 ## 🔮 Future Enhancements
 
 Potential features for future versions:
-- Save/export your idea path
+- ~~Save/export your idea path~~ ✅ Implemented
 - Share paths via URL
 - Undo/redo functionality
 - Visual tree view of exploration
-- Domain-specific templates
+- ~~Domain-specific templates~~ ✅ Implemented
 - Multiple language support
 - Dark mode
 
