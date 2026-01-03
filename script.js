@@ -14,10 +14,24 @@ const FREQUENCY_BIAS_FACTOR = 0.1; // Factor for reducing weight of frequently u
 // Cached operator mappings loaded from JSON
 let operatorMappings = null;
 
-// Context object to store domain and history
+// Tree node structure for branching history
+class HistoryNode {
+    constructor(choice, parent = null) {
+        // Use crypto.randomUUID() if available, fallback to timestamp + random
+        this.id = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+            ? crypto.randomUUID() 
+            : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+        this.choice = choice;
+        this.parent = parent;
+        this.children = [];
+    }
+}
+
+// Context object to store domain and history tree
 const context = {
     domain: '',
-    history: []
+    rootNode: null,      // Root of the history tree
+    currentNode: null    // Current position in the tree
 };
 
 // Operator usage tracking for frequency-based biasing
@@ -90,6 +104,9 @@ async function init() {
     });
     
     resetBtn.addEventListener('click', resetApp);
+    
+    // Event delegation for history path clicks
+    historyPath.addEventListener('click', handleHistoryClick);
 }
 
 /**
@@ -125,9 +142,10 @@ function startGeneration() {
     
     clearError(domainError);
     
-    // Set the domain in context
+    // Set the domain in context and initialize tree
     context.domain = domain;
-    context.history = [];
+    context.rootNode = null;
+    context.currentNode = null;
     
     // Switch screens
     domainInputScreen.classList.remove('active');
@@ -325,7 +343,8 @@ function calculateOptionScore(template, templateKey) {
     score += Math.max(0, 5 - usageCount);
     
     // Phase-based scoring (context-aware)
-    const historyLength = context.history.length;
+    const currentPath = getCurrentPath();
+    const historyLength = currentPath.length;
     if (historyLength <= 2 && template.phase === 'exploration') {
         score += 3; // Prefer exploration early
     } else if (historyLength > 2 && historyLength <= 5 && template.phase === 'refinement') {
@@ -367,8 +386,9 @@ function generateSingleOption(templates) {
     option = option.replace(/{domain}/g, context.domain);
     
     // Replace {last} with last choice if exists
-    if (context.history.length > 0) {
-        const lastChoice = context.history[context.history.length - 1];
+    const currentPath = getCurrentPath();
+    if (currentPath.length > 0) {
+        const lastChoice = currentPath[currentPath.length - 1];
         option = option.replace(/{last}/g, lastChoice);
     } else {
         option = option.replace(/{last}/g, context.domain);
@@ -471,7 +491,8 @@ function getTemplatesForDomain() {
     }
     
     // Add context-aware templates based on history (with metadata)
-    if (context.history.length > 2) {
+    const currentPath = getCurrentPath();
+    if (currentPath.length > 2) {
         domainTemplates.push(
             { text: 'Pivot to opposite direction', weight: 1.5, difficulty: 'high', phase: 'validation' },
             { text: 'Return to initial concept', weight: 1.3, difficulty: 'medium', phase: 'validation' },
@@ -487,19 +508,35 @@ function getTemplatesForDomain() {
  * Update the prompt based on context
  */
 function updatePrompt() {
-    const step = context.history.length + 1;
+    const currentPath = getCurrentPath();
+    const step = currentPath.length + 1;
     let prompt = '';
     
     if (step === 1) {
         prompt = `Let's explore ideas in the "${context.domain}" space. Where should we start?`;
     } else if (step === 2) {
-        prompt = `Great! You chose "${context.history[context.history.length - 1]}". What's the next refinement?`;
+        prompt = `Great! You chose "${currentPath[currentPath.length - 1]}". What's the next refinement?`;
     } else {
-        const recentChoices = context.history.slice(-2).join('" → "');
+        const recentChoices = currentPath.slice(-2).join('" → "');
         prompt = `Building on "${recentChoices}"... What direction next?`;
     }
     
     generationPrompt.textContent = prompt;
+}
+
+/**
+ * Get current path from root to current node
+ */
+function getCurrentPath() {
+    const path = [];
+    let node = context.currentNode;
+    
+    while (node !== null) {
+        path.unshift(node.choice);
+        node = node.parent;
+    }
+    
+    return path;
 }
 
 /**
@@ -508,21 +545,83 @@ function updatePrompt() {
 function updateHistoryDisplay() {
     historyPath.innerHTML = '';
     
-    if (context.history.length === 0) {
+    const currentPath = getCurrentPath();
+    
+    if (currentPath.length === 0) {
         historyPath.innerHTML = '<span class="history-item" style="color: #999;">Start your journey...</span>';
         return;
     }
     
     // Show only last 10 items
-    const recentHistory = context.history.slice(-10);
-    const startIndex = context.history.length - recentHistory.length;
+    const recentHistory = currentPath.slice(-10);
+    const startIndex = currentPath.length - recentHistory.length;
     
-    recentHistory.forEach((choice, index) => {
+    // Build path from root to current, collecting nodes
+    const pathNodes = [];
+    let node = context.currentNode;
+    while (node !== null) {
+        pathNodes.unshift(node);
+        node = node.parent;
+    }
+    const recentNodes = pathNodes.slice(-10);
+    
+    recentNodes.forEach((node, index) => {
         const item = document.createElement('span');
-        item.className = 'history-item';
-        item.textContent = `${startIndex + index + 1}. ${choice}`;
+        item.className = 'history-item clickable';
+        item.textContent = `${startIndex + index + 1}. ${node.choice}`;
+        item.style.cursor = 'pointer';
+        item.dataset.nodeId = node.id; // Store node ID for event delegation
+        
         historyPath.appendChild(item);
     });
+}
+
+/**
+ * Navigate to a specific node in the history tree
+ */
+function navigateToNode(node) {
+    // Set this node as the current node
+    context.currentNode = node;
+    
+    // Regenerate options from this point
+    generateNextStep();
+}
+
+/**
+ * Handle click on history path (event delegation)
+ */
+function handleHistoryClick(event) {
+    const clickedItem = event.target.closest('.history-item.clickable');
+    if (!clickedItem) return;
+    
+    const nodeId = clickedItem.dataset.nodeId;
+    if (!nodeId) return;
+    
+    // Find the node with this ID
+    const node = findNodeById(context.rootNode, nodeId);
+    if (node) {
+        navigateToNode(node);
+    }
+}
+
+/**
+ * Find a node by ID in the tree
+ */
+function findNodeById(startNode, targetId) {
+    if (!startNode) return null;
+    
+    // Check if this is the target node
+    if (startNode.id === targetId) {
+        return startNode;
+    }
+    
+    // Search in children
+    for (const child of startNode.children) {
+        const found = findNodeById(child, targetId);
+        if (found) return found;
+    }
+    
+    return null;
 }
 
 /**
@@ -534,8 +633,19 @@ function selectOption(option, templateKey) {
         operatorUsageCount[templateKey] = (operatorUsageCount[templateKey] || 0) + 1;
     }
     
-    // Add to history
-    context.history.push(option);
+    // Create new node and add to tree
+    const newNode = new HistoryNode(option, context.currentNode);
+    
+    if (context.currentNode === null) {
+        // First choice - this becomes the root
+        context.rootNode = newNode;
+    } else {
+        // Add as child to current node
+        context.currentNode.children.push(newNode);
+    }
+    
+    // Move to the new node
+    context.currentNode = newNode;
     
     // Generate next set of options (infinite loop)
     generateNextStep();
@@ -555,8 +665,19 @@ function handleCustomInput() {
     
     clearError(customError);
     
-    // Add to history
-    context.history.push(customValue);
+    // Create new node and add to tree
+    const newNode = new HistoryNode(customValue, context.currentNode);
+    
+    if (context.currentNode === null) {
+        // First choice - this becomes the root
+        context.rootNode = newNode;
+    } else {
+        // Add as child to current node
+        context.currentNode.children.push(newNode);
+    }
+    
+    // Move to the new node
+    context.currentNode = newNode;
     
     // Generate next set of options (infinite loop)
     generateNextStep();
@@ -568,7 +689,8 @@ function handleCustomInput() {
 function resetApp() {
     // Clear context
     context.domain = '';
-    context.history = [];
+    context.rootNode = null;
+    context.currentNode = null;
     
     // Clear operator usage tracking (efficient clearing)
     Object.keys(operatorUsageCount).forEach(key => delete operatorUsageCount[key]);
