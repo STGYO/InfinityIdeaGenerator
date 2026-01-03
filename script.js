@@ -483,7 +483,7 @@ function calculateOptionScore(template, templateKey) {
     
     // Phase-based scoring (strongly prefer operators matching current phase)
     const currentPhase = context.currentPhase;
-    const templatePhase = template.phase.toUpperCase();
+    const templatePhase = (template.phase || 'exploration').toUpperCase();
     
     const phaseDiff = getPhaseOrderDiff(currentPhase, templatePhase);
     
