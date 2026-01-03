@@ -17,7 +17,10 @@ let operatorMappings = null;
 // Tree node structure for branching history
 class HistoryNode {
     constructor(choice, parent = null) {
-        this.id = Date.now() + Math.random(); // Unique identifier
+        // Use crypto.randomUUID() if available, fallback to timestamp + random
+        this.id = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+            ? crypto.randomUUID() 
+            : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
         this.choice = choice;
         this.parent = parent;
         this.children = [];
@@ -101,6 +104,9 @@ async function init() {
     });
     
     resetBtn.addEventListener('click', resetApp);
+    
+    // Event delegation for history path clicks
+    historyPath.addEventListener('click', handleHistoryClick);
 }
 
 /**
@@ -564,9 +570,7 @@ function updateHistoryDisplay() {
         item.className = 'history-item clickable';
         item.textContent = `${startIndex + index + 1}. ${node.choice}`;
         item.style.cursor = 'pointer';
-        
-        // Add click handler to navigate to this node
-        item.addEventListener('click', () => navigateToNode(node));
+        item.dataset.nodeId = node.id; // Store node ID for event delegation
         
         historyPath.appendChild(item);
     });
@@ -581,6 +585,43 @@ function navigateToNode(node) {
     
     // Regenerate options from this point
     generateNextStep();
+}
+
+/**
+ * Handle click on history path (event delegation)
+ */
+function handleHistoryClick(event) {
+    const clickedItem = event.target.closest('.history-item.clickable');
+    if (!clickedItem) return;
+    
+    const nodeId = clickedItem.dataset.nodeId;
+    if (!nodeId) return;
+    
+    // Find the node with this ID
+    const node = findNodeById(context.rootNode, nodeId);
+    if (node) {
+        navigateToNode(node);
+    }
+}
+
+/**
+ * Find a node by ID in the tree
+ */
+function findNodeById(startNode, targetId) {
+    if (!startNode) return null;
+    
+    // Check if this is the target node
+    if (startNode.id === targetId) {
+        return startNode;
+    }
+    
+    // Search in children
+    for (const child of startNode.children) {
+        const found = findNodeById(child, targetId);
+        if (found) return found;
+    }
+    
+    return null;
 }
 
 /**
