@@ -130,7 +130,7 @@ function saveStateToLocalStorage() {
         };
         localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(state));
     } catch (error) {
-        console.error('Error saving state to localStorage:', error);
+        console.error('Failed to save session state to localStorage:', error);
     }
 }
 
@@ -166,7 +166,7 @@ function loadStateFromLocalStorage() {
             generateNextStep();
         }
     } catch (error) {
-        console.error('Error loading state from localStorage:', error);
+        console.error('Failed to restore session from localStorage:', error);
         // If there's an error, clear the corrupted data
         localStorage.removeItem(LOCALSTORAGE_KEY);
     }
@@ -825,13 +825,21 @@ function resetApp() {
 }
 
 /**
+ * Validate that a session exists for export
+ */
+function validateSessionForExport() {
+    if (!context.domain) {
+        alert('No session to export. Please start generating ideas first.');
+        return false;
+    }
+    return true;
+}
+
+/**
  * Export current idea path as Markdown
  */
 function exportAsMarkdown() {
-    if (!context.domain) {
-        alert('No session to export. Please start generating ideas first.');
-        return;
-    }
+    if (!validateSessionForExport()) return;
     
     const currentPath = getCurrentPath();
     const timestamp = new Date().toISOString().split('T')[0];
@@ -859,10 +867,7 @@ function exportAsMarkdown() {
  * Export current idea path as JSON
  */
 function exportAsJSON() {
-    if (!context.domain) {
-        alert('No session to export. Please start generating ideas first.');
-        return;
-    }
+    if (!validateSessionForExport()) return;
     
     const currentPath = getCurrentPath();
     const timestamp = new Date().toISOString();
