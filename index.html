@@ -34,6 +34,17 @@
                 <div class="domain-badge">
                     <strong>Domain:</strong> <span id="current-domain"></span>
                 </div>
+                <div class="phase-section">
+                    <strong>Current Phase:</strong> 
+                    <span id="current-phase" class="phase-badge"></span>
+                    <p id="phase-description" class="phase-description"></p>
+                </div>
+                <div class="phase-controls">
+                    <span class="phase-controls-label">Manual override:</span>
+                    <button class="phase-override-btn" data-phase="EXPLORATION" title="Switch to Exploration phase">Exploration</button>
+                    <button class="phase-override-btn" data-phase="REFINEMENT" title="Switch to Refinement phase">Refinement</button>
+                    <button class="phase-override-btn" data-phase="VALIDATION" title="Switch to Validation phase">Validation</button>
+                </div>
                 <div class="history-section">
                     <strong>Path:</strong>
                     <div id="history-path"></div>
